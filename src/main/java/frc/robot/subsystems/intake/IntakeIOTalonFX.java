@@ -28,21 +28,21 @@ public class IntakeIOTalonFX implements IntakeIO {
   private final NeutralOut neutralControl = new NeutralOut().withUpdateFreqHz(0.0);
 
   public IntakeIOTalonFX() {
-    motor = new TalonFX(IntakeConstants.MOTOR_ID, Constants.CANIVORE_BUS);
+    motor = new TalonFX(IntakeConstants.INTAKE_MOTOR_ID, Constants.CANIVORE_BUS);
 
     // Configure motor
     TalonFXConfiguration config = new TalonFXConfiguration();
 
     // Current limits
-    config.CurrentLimits.SupplyCurrentLimit = IntakeConstants.SUPPLY_CURRENT_LIMIT;
+    config.CurrentLimits.SupplyCurrentLimit = IntakeConstants.INTAKE_SUPPLY_CURRENT_LIMIT;
     config.CurrentLimits.SupplyCurrentLimitEnable = true;
-    config.CurrentLimits.StatorCurrentLimit = IntakeConstants.STATOR_CURRENT_LIMIT;
+    config.CurrentLimits.StatorCurrentLimit = IntakeConstants.INTAKE_STATOR_CURRENT_LIMIT;
     config.CurrentLimits.StatorCurrentLimitEnable = true;
 
     // Motor output
     config.MotorOutput.NeutralMode = NeutralModeValue.Brake;
     config.MotorOutput.Inverted = InvertedValue.CounterClockwise_Positive;
-    config.Feedback.SensorToMechanismRatio = IntakeConstants.SENSOR_TO_MECHANISM_RATIO;
+    config.Feedback.SensorToMechanismRatio = IntakeConstants.INTAKE_SENSOR_TO_MECHANISM_RATIO;
 
     // Apply configuration
     tryUntilOk(5, () -> motor.getConfigurator().apply(config));
@@ -75,5 +75,4 @@ public class IntakeIOTalonFX implements IntakeIO {
   public void stop() {
     motor.setControl(neutralControl);
   }
-  
 }

@@ -1,8 +1,3 @@
-// Copyright (c) 2021-2026 Littleton Robotics
-// http://github.com/Mechanical-Advantage
-// Use of this source code is governed by a BSD license
-// that can be found in the LICENSE file at the root directory.
-
 package frc.robot;
 
 import edu.wpi.first.wpilibj2.command.Command;
@@ -13,7 +8,6 @@ import frc.robot.commands.DriveCommands;
 import frc.robot.commands.feeder.FeederCommands;
 import frc.robot.commands.intake.IntakeCommands;
 import frc.robot.commands.intake.SetIntakePivotAngle;
-import frc.robot.commands.spindexer.SpindexerCommands;
 import frc.robot.generated.TunerConstants;
 import frc.robot.subsystems.drive.Drive;
 import frc.robot.subsystems.drive.GyroIO;
@@ -138,7 +132,7 @@ public class RobotContainer {
         .whileTrue(
             shooter
                 .shooterVoltageCommand(() -> 6.0)
-                .alongWith(SpindexerCommands.setSpindexerVoltage(6.0, spindexer))
+                .alongWith(spindexer.setSpindexerVoltageCommand(() -> 6))
                 .alongWith(FeederCommands.setFeederVoltage(10, feeder)));
 
     controller.leftBumper().whileTrue(IntakeCommands.setIntakePivotVoltage(1.0, intakePivot));

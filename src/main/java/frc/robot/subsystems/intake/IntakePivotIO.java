@@ -1,7 +1,17 @@
 package frc.robot.subsystems.intake;
 
+import org.littletonrobotics.junction.AutoLog;
+
 public interface IntakePivotIO {
-  public static class IntakePivotIOInputs {}
+  @AutoLog
+  public static class IntakePivotIOInputs {
+    public boolean motorConnected = false;
+    public double positionDegrees = 0.0;
+    public double velocityDegreesPerSecond = 0.0;
+    public double appliedVolts = 0.0;
+    public double supplyCurrentAmps = 0.0;
+    public double tempCelsius = 0.0;
+  }
 
   public default void updateInputs(IntakePivotIOInputs inputs) {}
 
@@ -9,9 +19,6 @@ public interface IntakePivotIO {
 
   public default void setPivotAngle(double angle, double cruiseVel, double acceleration) {}
 
-  public default double getPivotAngle() {
-    return 0.0;
-  }
   /* Sets pivot encoder unit to corresponding angle in degrees */
   public default void resetPivotAngle(double angle) {}
 

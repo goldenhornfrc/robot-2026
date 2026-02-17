@@ -1,7 +1,17 @@
 package frc.robot.subsystems.hood;
 
+import org.littletonrobotics.junction.AutoLog;
+
 public interface HoodIO {
-  public static class HoodIOInputs {}
+  @AutoLog
+  public static class HoodIOInputs {
+    public boolean motorConnected = false;
+    public double positionDegrees = 0.0;
+    public double velocityDegreesPerSecond = 0.0;
+    public double appliedVolts = 0.0;
+    public double supplyCurrentAmps = 0.0;
+    public double tempCelsius = 0.0;
+  }
 
   public default void updateInputs(HoodIOInputs inputs) {}
 
@@ -9,9 +19,6 @@ public interface HoodIO {
 
   public default void setHoodAngle(double angle, double cruiseVel, double acceleration) {}
 
-  public default double getHoodAngle() {
-    return 0.0;
-  }
   /* Sets hood encoder unit to corresponding angle in degrees */
   public default void resetHoodAngle(double angle) {}
 

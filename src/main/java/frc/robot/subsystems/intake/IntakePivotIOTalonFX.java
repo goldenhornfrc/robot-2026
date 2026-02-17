@@ -2,6 +2,8 @@ package frc.robot.subsystems.intake;
 
 import static frc.robot.util.PhoenixUtil.tryUntilOk;
 
+import com.ctre.phoenix6.BaseStatusSignal;
+import com.ctre.phoenix6.StatusSignal;
 import com.ctre.phoenix6.configs.MotionMagicConfigs;
 import com.ctre.phoenix6.configs.TalonFXConfiguration;
 import com.ctre.phoenix6.controls.MotionMagicVoltage;
@@ -10,14 +12,39 @@ import com.ctre.phoenix6.signals.FeedbackSensorSourceValue;
 import com.ctre.phoenix6.signals.GravityTypeValue;
 import com.ctre.phoenix6.signals.InvertedValue;
 import com.ctre.phoenix6.signals.NeutralModeValue;
+import edu.wpi.first.units.measure.Angle;
+import edu.wpi.first.units.measure.AngularVelocity;
+import edu.wpi.first.units.measure.Current;
+import edu.wpi.first.units.measure.Temperature;
+import edu.wpi.first.units.measure.Voltage;
 import frc.robot.Constants;
 
 public class IntakePivotIOTalonFX implements IntakePivotIO {
-  private final TalonFX pivotMotor = new TalonFX(25, Constants.CANIVORE_BUS);
+  private final TalonFX pivotMotor;
+
+  // Status Signals
+  private final StatusSignal<Angle> position;
+  private final StatusSignal<AngularVelocity> velocity;
+  private final StatusSignal<Voltage> appliedVolts;
+  private final StatusSignal<Current> supplyCurrent;
+  private final StatusSignal<Temperature> tempCelsius;
 
   public IntakePivotIOTalonFX() {
+    pivotMotor = new TalonFX(IntakeConstants.INTAKE_PIVOT_MOTOR_ID, Constants.CANIVORE_BUS);
+
     configPivotTalonFX(pivotMotor);
     pivotMotor.setPosition(IntakeConstants.intakePivotStartingPos / 360.0);
+
+    // Get StatusSignals
+    position = pivotMotor.getPosition();
+    velocity = pivotMotor.getVelocity();
+    appliedVolts = pivotMotor.getMotorVoltage();
+    supplyCurrent = pivotMotor.getSupplyCurrent();
+    tempCelsius = pivotMotor.getDeviceTemp();
+
+    // Set update frequency for all signals (100 Hz)
+    BaseStatusSignal.setUpdateFrequencyForAll(
+        100.0, position, velocity, appliedVolts, supplyCurrent, tempCelsius);
   }
 
   public void configPivotTalonFX(TalonFX talon) {
@@ -33,7 +60,7 @@ public class IntakePivotIOTalonFX implements IntakePivotIO {
 
     config.Feedback.FeedbackSensorSource = FeedbackSensorSourceValue.RotorSensor;
     config.Feedback.FeedbackRotorOffset = 0.0;
-    config.Feedback.SensorToMechanismRatio = (40.0 / 12.0) * 7.0;
+    config.Feedback.SensorToMechanismRatio = IntakeConstants.INTAKE_PIVOT_SENSOR_TO_MECHANISM_RATIO;
 
     config.MotorOutput.NeutralMode = NeutralModeValue.Brake;
     config.MotorOutput.Inverted = InvertedValue.Clockwise_Positive;
@@ -41,9 +68,9 @@ public class IntakePivotIOTalonFX implements IntakePivotIO {
     config.Voltage.PeakForwardVoltage = 8.0;
     config.Voltage.PeakReverseVoltage = -6.0;
 
-    config.CurrentLimits.SupplyCurrentLimit = 40;
+    config.CurrentLimits.SupplyCurrentLimit = IntakeConstants.INTAKE_PIVOT_SUPPLY_CURRENT_LIMIT;
     config.CurrentLimits.SupplyCurrentLimitEnable = true;
-    config.CurrentLimits.StatorCurrentLimit = 80.0;
+    config.CurrentLimits.StatorCurrentLimit = IntakeConstants.INTAKE_PIVOT_STATOR_CURRENT_LIMIT;
     config.CurrentLimits.StatorCurrentLimitEnable = true;
 
     config.MotionMagic.MotionMagicCruiseVelocity = IntakeConstants.intakePivotCruiseVel;
@@ -92,15 +119,21 @@ public class IntakePivotIOTalonFX implements IntakePivotIO {
   }
 
   @Override
-  public double getPivotAngle() {
-    return pivotMotor.getPosition().getValueAsDouble() * 360.0;
-  }
-
-  @Override
   public void resetPivotAngle(double angle) {
     tryUntilOk(5, () -> pivotMotor.setPosition(angle / 360.0));
   }
 
   @Override
-  public void updateInputs(IntakePivotIOInputs inputs) {}
+  public void updateInputs(IntakePivotIOInputs inputs) {
+    // Refresh all signals and check connection status
+    inputs.motorConnected =
+        BaseStatusSignal.refreshAll(position, velocity, appliedVolts, supplyCurrent, tempCelsius)
+            .isOK();
+
+    inputs.positionDegrees = position.getValueAsDouble() * 360.0;
+    inputs.velocityDegreesPerSecond = velocity.getValueAsDouble() * 360.0;
+    inputs.appliedVolts = appliedVolts.getValueAsDouble();
+    inputs.supplyCurrentAmps = supplyCurrent.getValueAsDouble();
+    inputs.tempCelsius = tempCelsius.getValueAsDouble();
+  }
 }

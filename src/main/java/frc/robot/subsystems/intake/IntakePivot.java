@@ -1,21 +1,33 @@
-// Copyright (c) FIRST and other WPILib contributors.
-// Open Source Software; you can modify and/or share it under the terms of
-// the WPILib BSD license file in the root directory of this project.
-
 package frc.robot.subsystems.intake;
 
+import edu.wpi.first.math.filter.Debouncer;
+import edu.wpi.first.wpilibj.Alert;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
-import frc.robot.subsystems.intake.IntakePivotIO.IntakePivotIOInputs;
-import org.littletonrobotics.junction.AutoLogOutput;
+import org.littletonrobotics.junction.Logger;
 
 public class IntakePivot extends SubsystemBase {
   /** Creates a new IntakePivot. */
   private IntakePivotIO io;
 
-  private IntakePivotIOInputs inputs;
+  private IntakePivotIOInputsAutoLogged inputs = new IntakePivotIOInputsAutoLogged();
+
+  private final Debouncer motorConnectedDebouncer =
+      new Debouncer(0.5, Debouncer.DebounceType.kFalling);
+
+  private final Alert motorDisconnected;
 
   public IntakePivot(IntakePivotIO io) {
     this.io = io;
+
+    motorDisconnected = new Alert("Intake pivot motor disconnected!", Alert.AlertType.kWarning);
+  }
+
+  @Override
+  public void periodic() {
+    io.updateInputs(inputs);
+    Logger.processInputs("IntakePivot", inputs);
+
+    motorDisconnected.set(!motorConnectedDebouncer.calculate(inputs.motorConnected));
   }
 
   public void setVoltage(double voltage) {
@@ -30,14 +42,11 @@ public class IntakePivot extends SubsystemBase {
     io.setPivotAngle(angle, cruiseVel, acceleration);
   }
 
-  @AutoLogOutput(key = "IntakePivot/Angle")
   public double getPivotAngle() {
-    return io.getPivotAngle();
+    return inputs.positionDegrees;
   }
 
-  @Override
-  public void periodic() {
-    // This method will be called once per scheduler run
-    io.updateInputs(inputs);
+  public void resetPivotAngle(double angle) {
+    io.resetPivotAngle(angle);
   }
 }

@@ -109,7 +109,6 @@ public class Shooter extends SubsystemBase {
    *
    * @return Target RPM
    */
-  
   public double getTargetRpm() {
     return targetRpm;
   }

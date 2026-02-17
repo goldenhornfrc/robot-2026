@@ -4,7 +4,11 @@
 
 package frc.robot.subsystems.spindexer;
 
+import edu.wpi.first.math.filter.Debouncer;
+import edu.wpi.first.wpilibj.Alert;
+import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
+import java.util.function.DoubleSupplier;
 import org.littletonrobotics.junction.Logger;
 
 public class Spindexer extends SubsystemBase {
@@ -13,8 +17,15 @@ public class Spindexer extends SubsystemBase {
 
   private SpindexerIOInputsAutoLogged inputs = new SpindexerIOInputsAutoLogged();
 
+  private final Debouncer motorConnectedDebouncer =
+      new Debouncer(0.5, Debouncer.DebounceType.kFalling);
+
+  private final Alert motorDisconnected;
+
   public Spindexer(SpindexerIO io) {
     this.io = io;
+
+    motorDisconnected = new Alert("Spindexer motor disconnected!", Alert.AlertType.kWarning);
   }
 
   @Override
@@ -22,6 +33,8 @@ public class Spindexer extends SubsystemBase {
     // This method will be called once per scheduler run
     io.updateInputs(inputs);
     Logger.processInputs("Spindexer Subsystem", inputs);
+
+    motorDisconnected.set(!motorConnectedDebouncer.calculate(inputs.motorConnected));
   }
 
   /**
@@ -36,5 +49,10 @@ public class Spindexer extends SubsystemBase {
   /** Stop the spindexer motor. */
   public void stop() {
     io.stop();
+  }
+
+  public Command setSpindexerVoltageCommand(DoubleSupplier voltageSupplier) {
+    return runEnd(() -> setVoltage(voltageSupplier.getAsDouble()), this::stop)
+        .withName("Spindexer Voltage Command (" + voltageSupplier.getAsDouble() + "V)");
   }
 }

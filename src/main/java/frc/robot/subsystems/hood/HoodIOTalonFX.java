@@ -2,23 +2,48 @@ package frc.robot.subsystems.hood;
 
 import static frc.robot.util.PhoenixUtil.tryUntilOk;
 
+import com.ctre.phoenix6.BaseStatusSignal;
+import com.ctre.phoenix6.StatusSignal;
 import com.ctre.phoenix6.configs.MotionMagicConfigs;
 import com.ctre.phoenix6.configs.TalonFXConfiguration;
 import com.ctre.phoenix6.controls.MotionMagicVoltage;
 import com.ctre.phoenix6.hardware.TalonFX;
 import com.ctre.phoenix6.signals.FeedbackSensorSourceValue;
-import com.ctre.phoenix6.signals.GravityTypeValue;
 import com.ctre.phoenix6.signals.InvertedValue;
 import com.ctre.phoenix6.signals.NeutralModeValue;
+import edu.wpi.first.units.measure.Angle;
+import edu.wpi.first.units.measure.AngularVelocity;
+import edu.wpi.first.units.measure.Current;
+import edu.wpi.first.units.measure.Temperature;
+import edu.wpi.first.units.measure.Voltage;
 import frc.robot.Constants;
 
 public class HoodIOTalonFX implements HoodIO {
+  private final TalonFX hoodMotor;
 
-  private final TalonFX hoodMotor = new TalonFX(15, Constants.CANIVORE_BUS);
+  // Status Signals
+  private final StatusSignal<Angle> position;
+  private final StatusSignal<AngularVelocity> velocity;
+  private final StatusSignal<Voltage> appliedVolts;
+  private final StatusSignal<Current> supplyCurrent;
+  private final StatusSignal<Temperature> tempCelsius;
 
   public HoodIOTalonFX() {
+    hoodMotor = new TalonFX(HoodConstants.HOOD_MOTOR_ID, Constants.CANIVORE_BUS);
+
     configHoodTalonFX(hoodMotor);
     resetHoodAngle(HoodConstants.kHoodStartingPos);
+
+    // Get StatusSignals
+    position = hoodMotor.getPosition();
+    velocity = hoodMotor.getVelocity();
+    appliedVolts = hoodMotor.getMotorVoltage();
+    supplyCurrent = hoodMotor.getSupplyCurrent();
+    tempCelsius = hoodMotor.getDeviceTemp();
+
+    // Set update frequency for all signals (100 Hz)
+    BaseStatusSignal.setUpdateFrequencyForAll(
+        100.0, position, velocity, appliedVolts, supplyCurrent, tempCelsius);
   }
 
   public void configHoodTalonFX(TalonFX talon) {
@@ -26,22 +51,20 @@ public class HoodIOTalonFX implements HoodIO {
     talon.getConfigurator().apply(new TalonFXConfiguration());
     TalonFXConfiguration config = new TalonFXConfiguration();
 
-    config.Slot0.kP = 0.0;
+    config.Slot0.kP = HoodConstants.kP;
     config.Slot0.kI = 0;
-    config.Slot0.kD = 0;
-    config.Slot0.kG = 0.0;
-    config.Slot0.GravityType = GravityTypeValue.Arm_Cosine;
+    config.Slot0.kD = HoodConstants.kD;
 
     config.Feedback.FeedbackSensorSource = FeedbackSensorSourceValue.RotorSensor;
     config.Feedback.FeedbackRotorOffset = 0.0;
-    config.Feedback.SensorToMechanismRatio = (52.0 / 8.0) * 16.0;
+    config.Feedback.SensorToMechanismRatio = HoodConstants.HOOD_SENSOR_TO_MECHANISM_RATIO;
 
     config.MotorOutput.NeutralMode = NeutralModeValue.Brake;
     config.MotorOutput.Inverted = InvertedValue.Clockwise_Positive;
 
-    config.CurrentLimits.SupplyCurrentLimit = 40;
+    config.CurrentLimits.SupplyCurrentLimit = HoodConstants.HOOD_SUPPLY_CURRENT_LIMIT;
     config.CurrentLimits.SupplyCurrentLimitEnable = true;
-    config.CurrentLimits.StatorCurrentLimit = 80.0;
+    config.CurrentLimits.StatorCurrentLimit = HoodConstants.HOOD_STATOR_CURRENT_LIMIT;
     config.CurrentLimits.StatorCurrentLimitEnable = true;
 
     config.MotionMagic.MotionMagicCruiseVelocity = HoodConstants.kHoodCruiseVel;
@@ -89,15 +112,21 @@ public class HoodIOTalonFX implements HoodIO {
   }
 
   @Override
-  public double getHoodAngle() {
-    return hoodMotor.getPosition().getValueAsDouble() * 360.0;
-  }
-
-  @Override
   public void resetHoodAngle(double angle) {
     tryUntilOk(5, () -> hoodMotor.setPosition(angle / 360.0));
   }
 
   @Override
-  public void updateInputs(HoodIOInputs inputs) {}
+  public void updateInputs(HoodIOInputs inputs) {
+    // Refresh all signals and check connection status
+    inputs.motorConnected =
+        BaseStatusSignal.refreshAll(position, velocity, appliedVolts, supplyCurrent, tempCelsius)
+            .isOK();
+
+    inputs.positionDegrees = position.getValueAsDouble() * 360.0;
+    inputs.velocityDegreesPerSecond = velocity.getValueAsDouble() * 360.0;
+    inputs.appliedVolts = appliedVolts.getValueAsDouble();
+    inputs.supplyCurrentAmps = supplyCurrent.getValueAsDouble();
+    inputs.tempCelsius = tempCelsius.getValueAsDouble();
+  }
 }
