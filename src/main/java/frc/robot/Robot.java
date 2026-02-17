@@ -7,8 +7,10 @@
 
 package frc.robot;
 
+import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.CommandScheduler;
+import org.littletonrobotics.junction.AutoLogOutputManager;
 import org.littletonrobotics.junction.LogFileUtil;
 import org.littletonrobotics.junction.LoggedRobot;
 import org.littletonrobotics.junction.Logger;
@@ -48,6 +50,7 @@ public class Robot extends LoggedRobot {
       }
     }
 
+    AutoLogOutputManager.addObject(RobotState.getInstance());
     Logger.start();
     robotContainer = new RobotContainer();
   }
@@ -79,6 +82,8 @@ public class Robot extends LoggedRobot {
     if (autonomousCommand != null) {
       autonomousCommand.cancel();
     }
+
+    RobotState.getInstance().resetPose(new Pose2d());
   }
 
   @Override

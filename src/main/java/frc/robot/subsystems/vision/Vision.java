@@ -11,27 +11,26 @@ import static frc.robot.subsystems.vision.VisionConstants.*;
 
 import edu.wpi.first.math.Matrix;
 import edu.wpi.first.math.VecBuilder;
-import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Pose3d;
 import edu.wpi.first.math.geometry.Rotation2d;
-import edu.wpi.first.math.numbers.N1;
-import edu.wpi.first.math.numbers.N3;
 import edu.wpi.first.wpilibj.Alert;
 import edu.wpi.first.wpilibj.Alert.AlertType;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
+import frc.robot.RobotState;
+import frc.robot.RobotState.VisionObservation;
 import frc.robot.subsystems.vision.VisionIO.PoseObservationType;
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.LinkedList;
 import java.util.List;
 import org.littletonrobotics.junction.Logger;
 
 public class Vision extends SubsystemBase {
-  private final VisionConsumer consumer;
   private final VisionIO[] io;
   private final VisionIOInputsAutoLogged[] inputs;
   private final Alert[] disconnectedAlerts;
 
-  public Vision(VisionConsumer consumer, VisionIO... io) {
-    this.consumer = consumer;
+  public Vision(VisionIO... io) {
     this.io = io;
 
     // Initialize inputs
@@ -60,6 +59,7 @@ public class Vision extends SubsystemBase {
 
   @Override
   public void periodic() {
+
     for (int i = 0; i < io.length; i++) {
       io[i].updateInputs(inputs[i]);
       Logger.processInputs("Vision/Camera" + Integer.toString(i), inputs[i]);
@@ -70,6 +70,9 @@ public class Vision extends SubsystemBase {
     List<Pose3d> allRobotPoses = new LinkedList<>();
     List<Pose3d> allRobotPosesAccepted = new LinkedList<>();
     List<Pose3d> allRobotPosesRejected = new LinkedList<>();
+
+    // Initialize observation list for RobotState
+    List<VisionObservation> allVisionObservations = new ArrayList<>();
 
     // Loop over cameras
     for (int cameraIndex = 0; cameraIndex < io.length; cameraIndex++) {
@@ -121,7 +124,7 @@ public class Vision extends SubsystemBase {
 
         // Calculate standard deviations
         double stdDevFactor =
-            Math.pow(observation.averageTagDistance(), 2.0) / observation.tagCount();
+            Math.pow(observation.averageTagDistance(), 1.2) / Math.pow(observation.tagCount(), 2.0);
         double linearStdDev = linearStdDevBaseline * stdDevFactor;
         double angularStdDev = angularStdDevBaseline * stdDevFactor;
         if (observation.type() == PoseObservationType.MEGATAG_2) {
@@ -133,11 +136,13 @@ public class Vision extends SubsystemBase {
           angularStdDev *= cameraStdDevFactors[cameraIndex];
         }
 
-        // Send vision observation
-        consumer.accept(
-            observation.pose().toPose2d(),
-            observation.timestamp(),
-            VecBuilder.fill(linearStdDev, linearStdDev, angularStdDev));
+        // Add vision observation to list
+        allVisionObservations.add(
+            new VisionObservation(
+                observation.timestamp(),
+                observation.pose().toPose2d(),
+                new Matrix<>(VecBuilder.fill(linearStdDev, linearStdDev, angularStdDev)),
+                "Limelight" + Integer.toString(cameraIndex) + " " + observation.type().name()));
       }
 
       // Log camera metadata
@@ -166,13 +171,10 @@ public class Vision extends SubsystemBase {
         "Vision/Summary/RobotPosesAccepted", allRobotPosesAccepted.toArray(new Pose3d[0]));
     Logger.recordOutput(
         "Vision/Summary/RobotPosesRejected", allRobotPosesRejected.toArray(new Pose3d[0]));
-  }
 
-  @FunctionalInterface
-  public static interface VisionConsumer {
-    public void accept(
-        Pose2d visionRobotPoseMeters,
-        double timestampSeconds,
-        Matrix<N3, N1> visionMeasurementStdDevs);
+    // Send results to robot state
+    allVisionObservations.stream()
+        .sorted(Comparator.comparingDouble(VisionObservation::timestamp))
+        .forEach(RobotState.getInstance()::addVisionObservation);
   }
 }

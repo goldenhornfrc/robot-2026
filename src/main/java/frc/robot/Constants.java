@@ -7,6 +7,7 @@
 
 package frc.robot;
 
+import com.ctre.phoenix6.CANBus;
 import edu.wpi.first.wpilibj.RobotBase;
 
 /**
@@ -17,6 +18,7 @@ import edu.wpi.first.wpilibj.RobotBase;
 public final class Constants {
   public static final Mode simMode = Mode.SIM;
   public static final Mode currentMode = RobotBase.isReal() ? Mode.REAL : simMode;
+  public static final boolean tuningMode = false;
 
   public static enum Mode {
     /** Running on a real robot. */
@@ -28,4 +30,7 @@ public final class Constants {
     /** Replaying from a log file. */
     REPLAY
   }
+
+  public static final String CanivoreName = "Canivore";
+  public static final CANBus CANIVORE_BUS = new CANBus(CanivoreName);
 }

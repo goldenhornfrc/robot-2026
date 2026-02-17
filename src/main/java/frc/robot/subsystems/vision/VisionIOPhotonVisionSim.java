@@ -10,13 +10,9 @@ package frc.robot.subsystems.vision;
 import static frc.robot.subsystems.vision.VisionConstants.aprilTagLayout;
 
 import edu.wpi.first.math.geometry.Pose2d;
-import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Transform3d;
-import edu.wpi.first.math.util.Units;
-
 import java.util.function.Supplier;
 import org.photonvision.simulation.PhotonCameraSim;
-import org.photonvision.simulation.SimCameraProperties;
 import org.photonvision.simulation.VisionSystemSim;
 
 /** IO implementation for physics sim using PhotonVision simulator. */
