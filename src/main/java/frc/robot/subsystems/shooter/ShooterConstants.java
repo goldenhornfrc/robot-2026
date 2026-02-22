@@ -13,11 +13,11 @@ public final class ShooterConstants {
   public static final double SENSOR_TO_MECHANISM_RATIO = 18.0 / 15.0;
 
   // PID and feedforward gains
-  public static final double KP = 0.0;
+  public static final double KP = 0.45;
   public static final double KI = 0.0;
   public static final double KD = 0.0;
   public static final double KS = 0.0;
-  public static final double KV = 0.0;
+  public static final double KV = 0.115; // 0.0019;
   public static final double KA = 0.0;
 
   // RPM tolerance for setpoint checking

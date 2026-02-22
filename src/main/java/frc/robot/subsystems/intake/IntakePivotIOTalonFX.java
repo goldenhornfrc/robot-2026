@@ -97,12 +97,6 @@ public class IntakePivotIOTalonFX implements IntakePivotIO {
   @Override
   public void setPivotAngle(double angle) {
     var rotAngle = angle / 360.0;
-    pivotMotor
-        .getConfigurator()
-        .apply(
-            new MotionMagicConfigs()
-                .withMotionMagicAcceleration(IntakeConstants.intakePivotAccel)
-                .withMotionMagicCruiseVelocity(IntakeConstants.intakePivotCruiseVel));
     pivotMotor.setControl(new MotionMagicVoltage(rotAngle).withSlot(0));
   }
 

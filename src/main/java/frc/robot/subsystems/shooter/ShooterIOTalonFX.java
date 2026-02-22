@@ -13,7 +13,6 @@ import com.ctre.phoenix6.controls.VoltageOut;
 import com.ctre.phoenix6.hardware.TalonFX;
 import com.ctre.phoenix6.signals.InvertedValue;
 import com.ctre.phoenix6.signals.NeutralModeValue;
-import edu.wpi.first.math.util.Units;
 import edu.wpi.first.units.measure.Angle;
 import edu.wpi.first.units.measure.AngularVelocity;
 import edu.wpi.first.units.measure.Current;
@@ -133,14 +132,14 @@ public class ShooterIOTalonFX implements ShooterIO {
             .isOK();
 
     // Update left motor inputs
-    inputs.leftPositionRads = Units.rotationsToRadians(leftPosition.getValueAsDouble());
+    // inputs.leftPositionRads = Units.rotationsToRadians(leftPosition.getValueAsDouble());
     inputs.leftVelocityRpm = leftVelocity.getValueAsDouble() * 60.0;
     inputs.leftAppliedVolts = leftAppliedVolts.getValueAsDouble();
     inputs.leftSupplyCurrentAmps = leftSupplyCurrent.getValueAsDouble();
     inputs.leftTempCelsius = leftTempCelsius.getValueAsDouble();
 
     // Update right motor inputs
-    inputs.rightPositionRads = Units.rotationsToRadians(rightPosition.getValueAsDouble());
+    // inputs.rightPositionRads = Units.rotationsToRadians(rightPosition.getValueAsDouble());
     inputs.rightVelocityRpm = rightVelocity.getValueAsDouble() * 60.0;
     inputs.rightAppliedVolts = rightAppliedVolts.getValueAsDouble();
     inputs.rightSupplyCurrentAmps = rightSupplyCurrent.getValueAsDouble();
@@ -160,8 +159,8 @@ public class ShooterIOTalonFX implements ShooterIO {
   }
 
   @Override
-  public void runVelocity(double rpm, double feedforward) {
-    leftMotor.setControl(velocityControl.withVelocity(rpm / 60.0).withFeedForward(feedforward));
+  public void runVelocity(double rpm) {
+    leftMotor.setControl(velocityControl.withVelocity(rpm / 60.0));
     rightMotor.setControl(new StrictFollower(ShooterConstants.LEFT_MOTOR_ID));
   }
 
@@ -170,6 +169,15 @@ public class ShooterIOTalonFX implements ShooterIO {
     controllerConfig.kP = kP;
     controllerConfig.kI = kI;
     controllerConfig.kD = kD;
+    tryUntilOk(5, () -> leftMotor.getConfigurator().apply(controllerConfig));
+    tryUntilOk(5, () -> rightMotor.getConfigurator().apply(controllerConfig));
+  }
+
+  @Override
+  public void setFF(double kS, double kV, double kA) {
+    controllerConfig.kS = kS;
+    controllerConfig.kV = kV;
+    controllerConfig.kA = kA;
     tryUntilOk(5, () -> leftMotor.getConfigurator().apply(controllerConfig));
     tryUntilOk(5, () -> rightMotor.getConfigurator().apply(controllerConfig));
   }

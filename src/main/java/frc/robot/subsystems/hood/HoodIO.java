@@ -23,4 +23,8 @@ public interface HoodIO {
   public default void resetHoodAngle(double angle) {}
 
   public default void setVoltage(double voltage) {}
+
+  public default void setPID(double kP, double kI, double kD) {}
+
+  public default void setFF(double kS, double kV, double kA) {}
 }

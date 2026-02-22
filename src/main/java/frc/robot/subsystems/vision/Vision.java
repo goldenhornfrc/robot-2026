@@ -59,7 +59,6 @@ public class Vision extends SubsystemBase {
 
   @Override
   public void periodic() {
-
     for (int i = 0; i < io.length; i++) {
       io[i].updateInputs(inputs[i]);
       Logger.processInputs("Vision/Camera" + Integer.toString(i), inputs[i]);
@@ -124,12 +123,12 @@ public class Vision extends SubsystemBase {
 
         // Calculate standard deviations
         double stdDevFactor =
-            Math.pow(observation.averageTagDistance(), 1.2) / Math.pow(observation.tagCount(), 2.0);
+            Math.pow(observation.averageTagDistance(), 2.0) / Math.pow(observation.tagCount(), 2.0);
         double linearStdDev = linearStdDevBaseline * stdDevFactor;
-        double angularStdDev = angularStdDevBaseline * stdDevFactor;
+        double angularStdDev = Double.POSITIVE_INFINITY; // angularStdDevBaseline * stdDevFactor ;
         if (observation.type() == PoseObservationType.MEGATAG_2) {
           linearStdDev *= linearStdDevMegatag2Factor;
-          angularStdDev *= angularStdDevMegatag2Factor;
+          // angularStdDev *= angularStdDevMegatag2Factor;
         }
         if (cameraIndex < cameraStdDevFactors.length) {
           linearStdDev *= cameraStdDevFactors[cameraIndex];

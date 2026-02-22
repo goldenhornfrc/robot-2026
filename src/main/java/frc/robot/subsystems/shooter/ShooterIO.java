@@ -25,7 +25,9 @@ public interface ShooterIO {
 
   public default void stop() {}
 
-  public default void runVelocity(double rpm, double feedforward) {}
+  public default void runVelocity(double rpm) {}
 
   public default void setPID(double kP, double kI, double kD) {}
+
+  public default void setFF(double kS, double kV, double kA) {}
 }

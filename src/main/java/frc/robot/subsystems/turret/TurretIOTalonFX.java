@@ -1,9 +1,10 @@
-package frc.robot.subsystems.hood;
+package frc.robot.subsystems.turret;
 
 import static frc.robot.util.PhoenixUtil.tryUntilOk;
 
 import com.ctre.phoenix6.BaseStatusSignal;
 import com.ctre.phoenix6.StatusSignal;
+import com.ctre.phoenix6.configs.MotionMagicConfigs;
 import com.ctre.phoenix6.configs.TalonFXConfiguration;
 import com.ctre.phoenix6.controls.MotionMagicVoltage;
 import com.ctre.phoenix6.hardware.TalonFX;
@@ -17,8 +18,8 @@ import edu.wpi.first.units.measure.Temperature;
 import edu.wpi.first.units.measure.Voltage;
 import frc.robot.Constants;
 
-public class HoodIOTalonFX implements HoodIO {
-  private final TalonFX hoodMotor;
+public class TurretIOTalonFX implements TurretIO {
+  private final TalonFX turretMotor;
 
   // Status Signals
   private final StatusSignal<Angle> position;
@@ -29,59 +30,60 @@ public class HoodIOTalonFX implements HoodIO {
 
   private TalonFXConfiguration controllerConfig = new TalonFXConfiguration();
 
-  public HoodIOTalonFX() {
-    hoodMotor = new TalonFX(HoodConstants.HOOD_MOTOR_ID, Constants.CANIVORE_BUS);
+  public TurretIOTalonFX() {
+    turretMotor = new TalonFX(TurretConstants.TURRET_MOTOR_ID, Constants.CANIVORE_BUS);
 
-    configHoodTalonFX(hoodMotor);
-    resetHoodAngle(HoodConstants.kHoodStartingPos);
+    configTurretTalonFX(turretMotor);
+    // resetTurretAngle(TurretConstants.kTurretStartingPos);
 
     // Get StatusSignals
-    position = hoodMotor.getPosition();
-    velocity = hoodMotor.getVelocity();
-    appliedVolts = hoodMotor.getMotorVoltage();
-    supplyCurrent = hoodMotor.getSupplyCurrent();
-    tempCelsius = hoodMotor.getDeviceTemp();
+    position = turretMotor.getPosition();
+    velocity = turretMotor.getVelocity();
+    appliedVolts = turretMotor.getMotorVoltage();
+    supplyCurrent = turretMotor.getSupplyCurrent();
+    tempCelsius = turretMotor.getDeviceTemp();
 
     // Set update frequency for all signals (100 Hz)
     BaseStatusSignal.setUpdateFrequencyForAll(
         100.0, position, velocity, appliedVolts, supplyCurrent, tempCelsius);
   }
 
-  public void configHoodTalonFX(TalonFX talon) {
+  public void configTurretTalonFX(TalonFX talon) {
 
     talon.getConfigurator().apply(new TalonFXConfiguration());
     controllerConfig = new TalonFXConfiguration();
 
-    controllerConfig.Slot0.kP = HoodConstants.kP;
+    controllerConfig.Slot0.kP = TurretConstants.kP;
     controllerConfig.Slot0.kI = 0;
-    controllerConfig.Slot0.kD = HoodConstants.kD;
+    controllerConfig.Slot0.kD = TurretConstants.kD;
 
-    controllerConfig.Slot0.kS = HoodConstants.kS;
-    controllerConfig.Slot0.kV = HoodConstants.kV;
-    controllerConfig.Slot0.kA = HoodConstants.kA;
+    controllerConfig.Slot0.kS = TurretConstants.kS;
+    controllerConfig.Slot0.kV = 0.0; // TurretConstants.kV;
+    controllerConfig.Slot0.kA = TurretConstants.kA;
 
     controllerConfig.Feedback.FeedbackSensorSource = FeedbackSensorSourceValue.RotorSensor;
     controllerConfig.Feedback.FeedbackRotorOffset = 0.0;
-    controllerConfig.Feedback.SensorToMechanismRatio = HoodConstants.HOOD_SENSOR_TO_MECHANISM_RATIO;
+    controllerConfig.Feedback.SensorToMechanismRatio =
+        TurretConstants.TURRET_SENSOR_TO_MECHANISM_RATIO;
 
     controllerConfig.MotorOutput.NeutralMode = NeutralModeValue.Brake;
-    controllerConfig.MotorOutput.Inverted = InvertedValue.CounterClockwise_Positive;
+    controllerConfig.MotorOutput.Inverted = InvertedValue.Clockwise_Positive;
 
-    controllerConfig.CurrentLimits.SupplyCurrentLimit = HoodConstants.HOOD_SUPPLY_CURRENT_LIMIT;
+    controllerConfig.CurrentLimits.SupplyCurrentLimit = TurretConstants.TURRET_SUPPLY_CURRENT_LIMIT;
     controllerConfig.CurrentLimits.SupplyCurrentLimitEnable = true;
-    controllerConfig.CurrentLimits.StatorCurrentLimit = HoodConstants.HOOD_STATOR_CURRENT_LIMIT;
+    controllerConfig.CurrentLimits.StatorCurrentLimit = TurretConstants.TURRET_STATOR_CURRENT_LIMIT;
     controllerConfig.CurrentLimits.StatorCurrentLimitEnable = true;
 
-    controllerConfig.MotionMagic.MotionMagicCruiseVelocity = HoodConstants.kHoodCruiseVel;
-    controllerConfig.MotionMagic.MotionMagicAcceleration = HoodConstants.kHoodAccel;
+    controllerConfig.MotionMagic.MotionMagicCruiseVelocity = TurretConstants.kTurretCruiseVel;
+    controllerConfig.MotionMagic.MotionMagicAcceleration = TurretConstants.kTurretAccel;
 
     controllerConfig.SoftwareLimitSwitch.ForwardSoftLimitEnable = true;
     controllerConfig.SoftwareLimitSwitch.ReverseSoftLimitEnable = true;
 
     controllerConfig.SoftwareLimitSwitch.ForwardSoftLimitThreshold =
-        HoodConstants.kHoodExtendLimit / 360.0;
+        TurretConstants.kTurretCCWLimit / 360.0;
     controllerConfig.SoftwareLimitSwitch.ReverseSoftLimitThreshold =
-        HoodConstants.kHoodStartingPos / 360.0;
+        TurretConstants.kTurretCWLimit / 360.0;
 
     controllerConfig.OpenLoopRamps.DutyCycleOpenLoopRampPeriod = 0;
     controllerConfig.OpenLoopRamps.VoltageOpenLoopRampPeriod = 0;
@@ -91,36 +93,50 @@ public class HoodIOTalonFX implements HoodIO {
 
   @Override
   public void setVoltage(double voltage) {
-    hoodMotor.setVoltage(voltage);
+    turretMotor.setVoltage(voltage);
   }
 
   @Override
-  public void setHoodAngle(double angle) {
+  public void setTurretAngle(double angle) {
     var rotAngle = angle / 360.0;
-    // hoodMotor
-    //    .getConfigurator()
-    //    .apply(
-    //        new MotionMagicConfigs()
-    //            .withMotionMagicAcceleration(HoodConstants.kHoodAccel)
-    //            .withMotionMagicCruiseVelocity(HoodConstants.kHoodCruiseVel));
-    hoodMotor.setControl(new MotionMagicVoltage(rotAngle).withSlot(0));
+    /*
+    TalonFXConfiguration readConfig = new TalonFXConfiguration();
+    turretMotor.getConfigurator().refresh(readConfig);
+    if (!(readConfig.MotionMagic.MotionMagicAcceleration == TurretConstants.kTurretAccel
+        && readConfig.MotionMagic.MotionMagicCruiseVelocity == TurretConstants.kTurretCruiseVel)) {
+      turretMotor
+          .getConfigurator()
+          .apply(
+              new MotionMagicConfigs()
+                  .withMotionMagicAcceleration(TurretConstants.kTurretAccel)
+                  .withMotionMagicCruiseVelocity(TurretConstants.kTurretCruiseVel));
+    }
+                  */
+    turretMotor.setControl(new MotionMagicVoltage(rotAngle).withSlot(0));
   }
 
   @Override
-  public void setHoodAngle(double angle, double cruiseVel, double acceleration) {
+  public void setTurretAngle(double angle, double cruiseVel, double acceleration) {
     var rotAngle = angle / 360;
-    // hoodMotor
-    //    .getConfigurator()
-    //    .apply(
-    //        new MotionMagicConfigs()
-    //            .withMotionMagicAcceleration(acceleration)
-    //            .withMotionMagicCruiseVelocity(cruiseVel));
-    hoodMotor.setControl(new MotionMagicVoltage(rotAngle).withSlot(0));
+    turretMotor
+        .getConfigurator()
+        .apply(
+            new MotionMagicConfigs()
+                .withMotionMagicAcceleration(acceleration)
+                .withMotionMagicCruiseVelocity(cruiseVel));
+
+    turretMotor.setControl(new MotionMagicVoltage(rotAngle).withSlot(0));
   }
 
   @Override
-  public void resetHoodAngle(double angle) {
-    tryUntilOk(5, () -> hoodMotor.setPosition(angle / 360.0));
+  public void setTurretAngleWithFeedforward(double angle, double ff) {
+    var rotAngle = angle / 360.0;
+    turretMotor.setControl(new MotionMagicVoltage(rotAngle).withSlot(0).withFeedForward(ff));
+  }
+
+  @Override
+  public void resetTurretAngle(double angle) {
+    tryUntilOk(5, () -> turretMotor.setPosition(angle / 360.0));
   }
 
   @Override
@@ -128,7 +144,7 @@ public class HoodIOTalonFX implements HoodIO {
     controllerConfig.Slot0.kP = kP;
     controllerConfig.Slot0.kI = kI;
     controllerConfig.Slot0.kD = kD;
-    tryUntilOk(5, () -> hoodMotor.getConfigurator().apply(controllerConfig));
+    tryUntilOk(5, () -> turretMotor.getConfigurator().apply(controllerConfig));
   }
 
   @Override
@@ -136,11 +152,11 @@ public class HoodIOTalonFX implements HoodIO {
     controllerConfig.Slot0.kS = kS;
     controllerConfig.Slot0.kV = kV;
     controllerConfig.Slot0.kA = kA;
-    tryUntilOk(5, () -> hoodMotor.getConfigurator().apply(controllerConfig));
+    tryUntilOk(5, () -> turretMotor.getConfigurator().apply(controllerConfig));
   }
 
   @Override
-  public void updateInputs(HoodIOInputs inputs) {
+  public void updateInputs(TurretIOInputs inputs) {
     // Refresh all signals and check connection status
     inputs.motorConnected =
         BaseStatusSignal.refreshAll(position, velocity, appliedVolts, supplyCurrent, tempCelsius)

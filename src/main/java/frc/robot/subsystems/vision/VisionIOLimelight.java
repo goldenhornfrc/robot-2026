@@ -20,12 +20,17 @@ import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Set;
+import java.util.function.DoubleSupplier;
 import java.util.function.Supplier;
 
 /** IO implementation for real Limelight hardware. */
 public class VisionIOLimelight implements VisionIO {
   private final Supplier<Rotation2d> rotationSupplier;
+  private final DoubleSupplier angularVelocitySupplier;
+  private final Supplier<Pose3d> cameraPoseSupplier; // Can be null for static cameras
+
   private final DoubleArrayPublisher orientationPublisher;
+  private final DoubleArrayPublisher cameraPosePublisher;
 
   private final DoubleSubscriber latencySubscriber;
   private final DoubleSubscriber txSubscriber;
@@ -34,15 +39,43 @@ public class VisionIOLimelight implements VisionIO {
   private final DoubleArraySubscriber megatag2Subscriber;
 
   /**
-   * Creates a new VisionIOLimelight.
+   * Creates a new VisionIOLimelight for a STATIC camera. Relies on the Limelight Web UI for the
+   * Camera Pose configuration.
    *
    * @param name The configured name of the Limelight.
    * @param rotationSupplier Supplier for the current estimated rotation, used for MegaTag 2.
+   * @param angularVelocitySupplier Supplier for the current angular velocity of the robot, used for
+   *     MegaTag 2.
    */
-  public VisionIOLimelight(String name, Supplier<Rotation2d> rotationSupplier) {
+  public VisionIOLimelight(
+      String name, Supplier<Rotation2d> rotationSupplier, DoubleSupplier angularVelocitySupplier) {
+    // Call the main constructor, passing null for the camera pose supplier
+    this(name, rotationSupplier, angularVelocitySupplier, null);
+  }
+
+  /**
+   * Creates a new VisionIOLimelight for a DYNAMIC (moving) camera. Overrides the Web UI Camera Pose
+   * dynamically over NetworkTables.
+   *
+   * @param name The configured name of the Limelight.
+   * @param rotationSupplier Supplier for the current estimated rotation, used for MegaTag 2.
+   * @param angularVelocitySupplier Supplier for the current angular velocity of the robot, used for
+   *     MegaTag 2.
+   * @param cameraPoseSupplier Supplier for the dynamic camera pose relative to the robot center.
+   */
+  public VisionIOLimelight(
+      String name,
+      Supplier<Rotation2d> rotationSupplier,
+      DoubleSupplier angularVelocitySupplier,
+      Supplier<Pose3d> cameraPoseSupplier) {
     var table = NetworkTableInstance.getDefault().getTable(name);
     this.rotationSupplier = rotationSupplier;
+    this.angularVelocitySupplier = angularVelocitySupplier;
+    this.cameraPoseSupplier = cameraPoseSupplier;
+
     orientationPublisher = table.getDoubleArrayTopic("robot_orientation_set").publish();
+    cameraPosePublisher = table.getDoubleArrayTopic("camerapose_robotspace_set").publish();
+
     latencySubscriber = table.getDoubleTopic("tl").subscribe(0.0);
     txSubscriber = table.getDoubleTopic("tx").subscribe(0.0);
     tySubscriber = table.getDoubleTopic("ty").subscribe(0.0);
@@ -53,25 +86,45 @@ public class VisionIOLimelight implements VisionIO {
 
   @Override
   public void updateInputs(VisionIOInputs inputs) {
-    // Update connection status based on whether an update has been seen in the last
-    // 250ms
     inputs.connected =
         ((RobotController.getFPGATime() - latencySubscriber.getLastChange()) / 1000) < 250;
 
-    // Update target observation
     inputs.latestTargetObservation =
         new TargetObservation(
             Rotation2d.fromDegrees(txSubscriber.get()), Rotation2d.fromDegrees(tySubscriber.get()));
 
     // Update orientation for MegaTag 2
     orientationPublisher.accept(
-        new double[] {rotationSupplier.get().getDegrees(), 0.0, 0.0, 0.0, 0.0, 0.0});
-    NetworkTableInstance.getDefault()
-        .flush(); // Increases network traffic but recommended by Limelight
+        new double[] {
+          rotationSupplier.get().getDegrees(),
+          angularVelocitySupplier.getAsDouble(),
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        });
+
+    // --- ONLY PUBLISH POSE IF IT IS A DYNAMIC CAMERA ---
+    if (cameraPoseSupplier != null) {
+      Pose3d camPose = cameraPoseSupplier.get();
+      cameraPosePublisher.accept(
+          new double[] {
+            camPose.getX(),
+            -camPose.getY(),
+            camPose.getZ(),
+            -Units.radiansToDegrees(camPose.getRotation().getX()), // Roll
+            -Units.radiansToDegrees(camPose.getRotation().getY()), // Pitch
+            Units.radiansToDegrees(camPose.getRotation().getZ()) // Yaw
+          });
+    }
+
+    NetworkTableInstance.getDefault().flush();
 
     // Read new pose observations from NetworkTables
     Set<Integer> tagIds = new HashSet<>();
     List<PoseObservation> poseObservations = new LinkedList<>();
+
+    // (MegaTag 1 & 2 parsing logic remains exactly the same as your original snippet)
     for (var rawSample : megatag1Subscriber.readQueue()) {
       if (rawSample.value.length == 0) continue;
       for (int i = 11; i < rawSample.value.length; i += 7) {
@@ -79,25 +132,14 @@ public class VisionIOLimelight implements VisionIO {
       }
       poseObservations.add(
           new PoseObservation(
-              // Timestamp, based on server timestamp of publish and latency
               rawSample.timestamp * 1.0e-6 - rawSample.value[6] * 1.0e-3,
-
-              // 3D pose estimate
               parsePose(rawSample.value),
-
-              // Ambiguity, using only the first tag because ambiguity isn't applicable for
-              // multitag
               rawSample.value.length >= 18 ? rawSample.value[17] : 0.0,
-
-              // Tag count
               (int) rawSample.value[7],
-
-              // Average tag distance
               rawSample.value[9],
-
-              // Observation type
               PoseObservationType.MEGATAG_1));
     }
+
     for (var rawSample : megatag2Subscriber.readQueue()) {
       if (rawSample.value.length == 0) continue;
       for (int i = 11; i < rawSample.value.length; i += 7) {
@@ -105,32 +147,19 @@ public class VisionIOLimelight implements VisionIO {
       }
       poseObservations.add(
           new PoseObservation(
-              // Timestamp, based on server timestamp of publish and latency
               rawSample.timestamp * 1.0e-6 - rawSample.value[6] * 1.0e-3,
-
-              // 3D pose estimate
               parsePose(rawSample.value),
-
-              // Ambiguity, zeroed because the pose is already disambiguated
               0.0,
-
-              // Tag count
               (int) rawSample.value[7],
-
-              // Average tag distance
               rawSample.value[9],
-
-              // Observation type
               PoseObservationType.MEGATAG_2));
     }
 
-    // Save pose observations to inputs object
     inputs.poseObservations = new PoseObservation[poseObservations.size()];
     for (int i = 0; i < poseObservations.size(); i++) {
       inputs.poseObservations[i] = poseObservations.get(i);
     }
 
-    // Save tag IDs to inputs objects
     inputs.tagIds = new int[tagIds.size()];
     int i = 0;
     for (int id : tagIds) {
@@ -138,7 +167,6 @@ public class VisionIOLimelight implements VisionIO {
     }
   }
 
-  /** Parses the 3D pose from a Limelight botpose array. */
   private static Pose3d parsePose(double[] rawLLArray) {
     return new Pose3d(
         rawLLArray[0],

@@ -7,7 +7,9 @@
 
 package frc.robot;
 
+import com.ctre.phoenix6.SignalLogger;
 import edu.wpi.first.math.geometry.Pose2d;
+import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.CommandScheduler;
 import org.littletonrobotics.junction.AutoLogOutputManager;
@@ -38,7 +40,7 @@ public class Robot extends LoggedRobot {
 
     switch (Constants.currentMode) {
       case REAL -> {
-        Logger.addDataReceiver(new WPILOGWriter());
+        // Logger.addDataReceiver(new WPILOGWriter());
         Logger.addDataReceiver(new NT4Publisher());
       }
       case SIM -> Logger.addDataReceiver(new NT4Publisher());
@@ -49,8 +51,9 @@ public class Robot extends LoggedRobot {
         Logger.addDataReceiver(new WPILOGWriter(LogFileUtil.addPathSuffix(logPath, "_sim")));
       }
     }
-
+    SignalLogger.stop();
     AutoLogOutputManager.addObject(RobotState.getInstance());
+
     Logger.start();
     robotContainer = new RobotContainer();
   }
@@ -83,7 +86,7 @@ public class Robot extends LoggedRobot {
       autonomousCommand.cancel();
     }
 
-    RobotState.getInstance().resetPose(new Pose2d());
+    RobotState.getInstance().resetPose(new Pose2d(0, 0, Rotation2d.fromDegrees(180)));
   }
 
   @Override

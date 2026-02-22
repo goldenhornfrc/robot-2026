@@ -16,6 +16,7 @@ import edu.wpi.first.math.kinematics.SwerveDriveKinematics;
 import edu.wpi.first.math.kinematics.SwerveModulePosition;
 import edu.wpi.first.math.numbers.N1;
 import edu.wpi.first.math.numbers.N3;
+import edu.wpi.first.math.util.Units;
 import frc.robot.generated.TunerConstants;
 import java.util.*;
 import org.littletonrobotics.junction.AutoLogOutput;
@@ -49,6 +50,7 @@ public class RobotState {
       };
   private Rotation2d lastGyroRotation = Rotation2d.kZero;
   private ChassisSpeeds robotVelocity = new ChassisSpeeds();
+  private double yawAngularGyroVel = 0.0;
 
   private static RobotState instance;
 
@@ -159,8 +161,20 @@ public class RobotState {
     estimatedPose = swervePoseEstimator.getEstimatedPosition();
   }
 
-  public void addDriveSpeeds(ChassisSpeeds speeds) {
+  public void addDriveSpeeds(ChassisSpeeds speeds, double yawAngularGyroVelRadPerSec) {
     robotVelocity = speeds;
+    yawAngularGyroVel = Units.radiansToDegrees(yawAngularGyroVelRadPerSec);
+  }
+
+  @AutoLogOutput(key = "RobotState/TurretToFieldAngle")
+  public Rotation2d getTurretToFieldAngle(Rotation2d turretAngle) {
+    return getRotation().plus(turretAngle);
+  }
+
+  @AutoLogOutput(key = "RobotState/AngularVelocity")
+  /** Degrees per sec */
+  public double getDriveAngularVelocity() {
+    return yawAngularGyroVel;
   }
 
   // MARK: - Type declarations
