@@ -221,12 +221,9 @@ public class RobotContainer {
 
     controller.leftBumper().toggleOnTrue(intake.runIntakeCommand(() -> -6.5));
 
-    controller
-        .a()
-        .whileTrue(Commands.runEnd(() -> Drive.isShooting = true, () -> Drive.isShooting = false));
     Trigger inLaunchingTolerance =
         new Trigger(
-            () -> hood.atGoal() && shooter.atGoal() && turret.atGoal() && !Turret.wrappingAngle);
+            () -> hood.atGoal() && shooter.atGoal() && turret.atGoal());
 
     controller
         .rightTrigger()
@@ -241,8 +238,9 @@ public class RobotContainer {
                 turret,
                 () -> LaunchCalculator.getInstance().getParameters().turretAngle().getDegrees(),
                 () -> LaunchCalculator.getInstance().getParameters().turretVelocity()))
-        .and(() -> LaunchCalculator.getInstance().getParameters().isValid())
-        .and(inLaunchingTolerance.debounce(0.25, DebounceType.kFalling))
+                .and(() -> LaunchCalculator.getInstance().getParameters().isValid())
+                .and(() -> !Turret.wrappingAngle)
+                .and(inLaunchingTolerance.debounce(0.25, DebounceType.kFalling))
         .whileTrue(
             Commands.parallel(
                 spindexer.setSpindexerVoltageCommand(() -> 5),
