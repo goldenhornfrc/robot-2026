@@ -46,6 +46,9 @@ public class Turret extends SubsystemBase {
       new LoggedTunableNumber("Turret/TargetOverridePos", 0.0);
   private final DigitalInput turretHallSensor = new DigitalInput(9);
 
+  private double targetAngle = 0.0;
+  public static boolean wrappingAngle = false;
+
   public Turret(TurretIO io) {
     this.io = io;
     motorDisconnected = new Alert("Turret motor disconnected!", Alert.AlertType.kWarning);
@@ -84,19 +87,26 @@ public class Turret extends SubsystemBase {
   }
 
   public void setTurretAngle(double angle) {
+    this.targetAngle = angle;
     io.setTurretAngle(angle);
   }
 
   public void setTurretAngleWithFeedforward(double angle, double ff) {
+    this.targetAngle = angle;
     io.setTurretAngleWithFeedforward(angle, ff);
   }
 
   public void setTurretAngle(double angle, double cruiseVel, double acceleration) {
+    this.targetAngle = angle;
     io.setTurretAngle(angle, cruiseVel, acceleration);
   }
 
   public double getTurretAngle() {
     return inputs.positionDegrees;
+  }
+
+  public boolean atGoal() {
+    return Math.abs(getTurretAngle() - targetAngle) <= 1.5;
   }
 
   /** Sets the turret PID gains (kP, kI, kD) */

@@ -377,5 +377,21 @@ public class FieldConstants {
       }
       return layoutString;
     }
+
+    public static void preloadAprilTagLayouts() {
+      // Force layout parsing for all known layout types; safe to call multiple times
+      for (AprilTagLayoutType t : AprilTagLayoutType.values()) {
+        try {
+          t.getLayout(); // parse / cache JSON
+        } catch (RuntimeException ex) {
+          // Optionally log — don't rethrow to avoid startup crash
+          System.err.println("Failed to preload apriltag layout " + t + ": " + ex.getMessage());
+        }
+      }
+      // Touch the Hub 2D constants so their cached values are computed
+      var b = Hub.blueHubCenter;
+      var r = Hub.redHubCenter;
+      var x = Hub.topCenterPoint.toTranslation2d();
+    }
   }
 }

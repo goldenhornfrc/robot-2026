@@ -1,16 +1,21 @@
 package frc.robot;
 
+import edu.wpi.first.math.filter.Debouncer.DebounceType;
 import edu.wpi.first.math.geometry.Pose3d;
 import edu.wpi.first.math.geometry.Rotation3d;
 import edu.wpi.first.math.geometry.Transform3d;
 import edu.wpi.first.math.geometry.Translation3d;
 import edu.wpi.first.math.util.Units;
+import edu.wpi.first.wpilibj.DriverStation.Alliance;
 import edu.wpi.first.wpilibj2.command.Command;
+import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.RepeatCommand;
 import edu.wpi.first.wpilibj2.command.WaitCommand;
 import edu.wpi.first.wpilibj2.command.button.CommandXboxController;
+import edu.wpi.first.wpilibj2.command.button.Trigger;
 import frc.robot.commands.DriveCommands;
 import frc.robot.commands.TrackTarget;
+import frc.robot.commands.drive.DefaultDrive;
 import frc.robot.commands.intake.IntakeCommands;
 import frc.robot.commands.intake.SetIntakePivotAngle;
 import frc.robot.generated.TunerConstants;
@@ -32,6 +37,7 @@ import frc.robot.subsystems.intake.IntakeIOTalonFX;
 import frc.robot.subsystems.intake.IntakePivot;
 import frc.robot.subsystems.intake.IntakePivotIO;
 import frc.robot.subsystems.intake.IntakePivotIOTalonFX;
+import frc.robot.subsystems.shooter.LaunchCalculator;
 import frc.robot.subsystems.shooter.Shooter;
 import frc.robot.subsystems.shooter.ShooterIO;
 import frc.robot.subsystems.shooter.ShooterIOTalonFX;
@@ -45,8 +51,8 @@ import frc.robot.subsystems.vision.Vision;
 import frc.robot.subsystems.vision.VisionConstants;
 import frc.robot.subsystems.vision.VisionIO;
 import frc.robot.subsystems.vision.VisionIOLimelight;
-import frc.robot.subsystems.vision.VisionIOPhotonVisionSim;
 import org.littletonrobotics.junction.Logger;
+import org.littletonrobotics.junction.networktables.LoggedDashboardChooser;
 
 /** Robot container with subsystems, commands, and button mappings. */
 public class RobotContainer {
@@ -62,6 +68,9 @@ public class RobotContainer {
   // private final Vision vision;
   private final CommandXboxController controller = new CommandXboxController(0);
   private Command autoCommand;
+
+  public static Alliance currentAlliance = Alliance.Red;
+  public final LoggedDashboardChooser<Alliance> m_allianceChooser;
 
   // private final LoggedDashboardChooser<Command> autoChooser;
 
@@ -131,12 +140,13 @@ public class RobotContainer {
         feeder = new Feeder(new FeederIO() {});
         turret = new Turret(new TurretIO() {});
         hood = new Hood(new HoodIO() {});
-        vision =
-            new Vision(
-                new VisionIOPhotonVisionSim(
-                    "limelight4",
-                    VisionConstants.robotToCamera0,
-                    () -> RobotState.getInstance().getEstimatedPose()));
+        vision = new Vision(new VisionIO() {});
+        /*
+        new Vision(
+            new VisionIOPhotonVisionSim(
+                "limelight4",
+                VisionConstants.robotToCamera0,
+                () -> RobotState.getInstance().getEstimatedPose()));*/
 
         break;
 
@@ -181,50 +191,62 @@ public class RobotContainer {
             "Drive SysId (Dynamic Reverse)", drive.sysIdDynamic(SysIdRoutine.Direction.kReverse));
     */
     configureButtonBindings();
+
+    m_allianceChooser = new LoggedDashboardChooser<>("Alliance Chooser");
+
+    m_allianceChooser.addDefaultOption("Red Alliance", Alliance.Red);
+    m_allianceChooser.addOption("Blue Alliance", Alliance.Blue);
+  }
+
+  public static Alliance getAlliance() {
+    return currentAlliance;
   }
 
   /** Define button-to-command mappings. */
   private void configureButtonBindings() {
 
     drive.setDefaultCommand(
-        DriveCommands.joystickDrive(
+        new DefaultDrive(
             drive,
             () -> -controller.getLeftY(),
             () -> -controller.getLeftX(),
-            () -> -controller.getRightX()));
+            () -> -controller.getRightX() * 0.75));
 
     controller
         .rightBumper()
         .toggleOnTrue(
             intake
-                .runIntakeCommand(() -> 6)
-                .alongWith(new SetIntakePivotAngle(intakePivot, -1.0, true)));
-    controller.leftBumper().toggleOnTrue(intake.runIntakeCommand(() -> -6));
+                .runIntakeCommand(() -> 6.5)
+                .alongWith(new SetIntakePivotAngle(intakePivot, 0, true)));
+
+    controller.leftBumper().toggleOnTrue(intake.runIntakeCommand(() -> -6.5));
+
+    controller
+        .a()
+        .whileTrue(Commands.runEnd(() -> Drive.isShooting = true, () -> Drive.isShooting = false));
+    Trigger inLaunchingTolerance =
+        new Trigger(
+            () -> hood.atGoal() && shooter.atGoal() && turret.atGoal() && !Turret.wrappingAngle);
 
     controller
         .rightTrigger()
         .whileTrue(
-            shooter
-                .shooterRPMTuningCommand(() -> 3500)
-                .alongWith(hood.hoodPositionTuningCommand(() -> 18.0))
-                .alongWith(
-                    new WaitCommand(0.3).andThen(spindexer.setSpindexerVoltageCommand(() -> 5)))
-                .alongWith(new WaitCommand(0.3).andThen(feeder.setFeederVoltageCommand(() -> 11))));
-
-    controller
-        .leftTrigger()
+            shooter.shooterRPMTuningCommand(
+                () -> LaunchCalculator.getInstance().getParameters().flywheelSpeed()))
+        .whileTrue(
+            hood.hoodPositionTuningCommand(
+                () -> LaunchCalculator.getInstance().getParameters().hoodAngle()))
         .whileTrue(
             new TrackTarget(
                 turret,
-                () -> {
-                  double targetAngle =
-                      FieldConstants.Hub.redHubCenter
-                          .minus(RobotState.getInstance().getEstimatedPose().getTranslation())
-                          .getAngle()
-                          .getDegrees();
-                  return targetAngle;
-                },
-                () -> RobotState.getInstance().getRotation().getDegrees()));
+                () -> LaunchCalculator.getInstance().getParameters().turretAngle().getDegrees(),
+                () -> LaunchCalculator.getInstance().getParameters().turretVelocity()))
+        .and(() -> LaunchCalculator.getInstance().getParameters().isValid())
+        .and(inLaunchingTolerance.debounce(0.25, DebounceType.kFalling))
+        .whileTrue(
+            Commands.parallel(
+                spindexer.setSpindexerVoltageCommand(() -> 5),
+                feeder.setFeederVoltageCommand(() -> 11)));
 
     controller
         .a()

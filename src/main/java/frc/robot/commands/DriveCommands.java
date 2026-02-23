@@ -42,29 +42,7 @@ public class DriveCommands {
   private static final double WHEEL_RADIUS_MAX_VELOCITY = 0.6; // Rad/Sec
   private static final double WHEEL_RADIUS_RAMP_RATE = 0.15; // Rad/Sec^2
 
-  // Additional tuning defaults for drive angle control
-  private static final double MAINTAIN_KP = 1.5;
-  private static final double MAINTAIN_KD = 0.0;
-  private static final double ANGLE_DEADBAND = 0.1;
-
   private DriveCommands() {}
-
-  // Single shared PID controllers for angle and maintain behavior. Declared once to avoid
-  // creating controllers repeatedly per-command which triggered static analysis/resource
-  // warnings.
-  private static final edu.wpi.first.math.controller.PIDController angleController =
-      new edu.wpi.first.math.controller.PIDController(ANGLE_KP, 0.0, ANGLE_KD);
-
-  static {
-    angleController.enableContinuousInput(-Math.PI, Math.PI);
-  }
-
-  private static final edu.wpi.first.math.controller.PIDController maintainController =
-      new edu.wpi.first.math.controller.PIDController(MAINTAIN_KP, 0.0, MAINTAIN_KD);
-
-  static {
-    maintainController.enableContinuousInput(-Math.PI, Math.PI);
-  }
 
   private static Translation2d getLinearVelocityFromJoysticks(double x, double y) {
     // Apply deadband
@@ -78,85 +56,6 @@ public class DriveCommands {
     return new Pose2d(Translation2d.kZero, linearDirection)
         .transformBy(new Transform2d(linearMagnitude, 0.0, Rotation2d.kZero))
         .getTranslation();
-  }
-
-  /**
-   * Default field-relative drive that keeps joystick translation but handles maintain-heading. If a
-   * rotationSupplier is provided, it will snap/hold to that rotation using a PID controller.
-   */
-  public static Command defaultDrive(
-      Drive drive,
-      DoubleSupplier xSupplier,
-      DoubleSupplier ySupplier,
-      DoubleSupplier omegaSupplier,
-      java.util.function.Supplier<Rotation2d> rotationSupplier) {
-
-    // Use shared controllers declared at class level
-    // Reset controllers when this command factory runs to ensure clean state
-    angleController.reset();
-    maintainController.reset();
-
-    return Commands.run(
-        () -> {
-          // Linear translation
-          Translation2d linearVelocity =
-              getLinearVelocityFromJoysticks(xSupplier.getAsDouble(), ySupplier.getAsDouble());
-
-          // Rotation handling
-          double rawOmega = MathUtil.applyDeadband(omegaSupplier.getAsDouble(), DEADBAND);
-          double omega;
-
-          // If driver is commanding rotation strongly, follow driver input and update maintain
-          // target
-          if (Math.abs(rawOmega) >= 0.25) {
-            double squared = Math.copySign(rawOmega * rawOmega, rawOmega);
-            omega =
-                MathUtil.applyDeadband(squared, ANGLE_DEADBAND)
-                    * drive.getMaxAngularSpeedRadPerSec();
-            maintainController.reset();
-            maintainController.setSetpoint(RobotState.getInstance().getRotation().getRadians());
-          } else if (rotationSupplier != null) {
-            // Snap / hold to provided rotation
-            omega =
-                angleController.calculate(
-                    RobotState.getInstance().getRotation().getRadians(),
-                    rotationSupplier.get().getRadians());
-          } else {
-            // Maintain heading when driver isn't commanding rotation
-            omega =
-                maintainController.calculate(
-                    RobotState.getInstance().getRotation().getRadians(),
-                    RobotState.getInstance().getRotation().getRadians());
-          }
-
-          omega = MathUtil.applyDeadband(omega, ANGLE_DEADBAND);
-
-          ChassisSpeeds speeds =
-              new ChassisSpeeds(
-                  linearVelocity.getX() * drive.getMaxLinearSpeedMetersPerSec(),
-                  linearVelocity.getY() * drive.getMaxLinearSpeedMetersPerSec(),
-                  omega);
-
-          boolean isFlipped =
-              DriverStation.getAlliance().isPresent()
-                  && DriverStation.getAlliance().get() == Alliance.Red;
-
-          drive.runVelocity(
-              ChassisSpeeds.fromFieldRelativeSpeeds(
-                  speeds,
-                  isFlipped
-                      ? RobotState.getInstance().getRotation().plus(new Rotation2d(Math.PI))
-                      : RobotState.getInstance().getRotation()));
-        },
-        drive);
-  }
-
-  public static Command defaultDrive(
-      Drive drive,
-      DoubleSupplier xSupplier,
-      DoubleSupplier ySupplier,
-      DoubleSupplier omegaSupplier) {
-    return defaultDrive(drive, xSupplier, ySupplier, omegaSupplier, null);
   }
 
   /**

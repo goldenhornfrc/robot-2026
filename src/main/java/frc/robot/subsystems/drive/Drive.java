@@ -35,6 +35,16 @@ import org.littletonrobotics.junction.AutoLogOutput;
 import org.littletonrobotics.junction.Logger;
 
 public class Drive extends SubsystemBase {
+
+  public enum DriveState {
+    TELEOP_DRIVE,
+    MAINTAIN_HEADING,
+    SNAP_HEADING,
+  }
+
+  private static DriveState driveState = DriveState.TELEOP_DRIVE;
+  private static Rotation2d driveTargetHeading = new Rotation2d();
+
   // TunerConstants doesn't include these constants, so they are declared locally
   static final double ODOMETRY_FREQUENCY = TunerConstants.kCANBus.isNetworkFD() ? 250.0 : 100.0;
   public static final double DRIVE_BASE_RADIUS =
@@ -55,6 +65,7 @@ public class Drive extends SubsystemBase {
       new Alert("Disconnected gyro, using kinematics as fallback.", AlertType.kError);
 
   private SwerveDriveKinematics kinematics = new SwerveDriveKinematics(getModuleTranslations());
+  public static boolean isShooting = false;
 
   public Drive(
       GyroIO gyroIO,
@@ -264,7 +275,25 @@ public class Drive extends SubsystemBase {
   }
 
   public double getMaxAngularSpeedRadPerSec() {
-    return getMaxLinearSpeedMetersPerSec() / DRIVE_BASE_RADIUS;
+    return getMaxLinearSpeedMetersPerSec() * 0.75 / DRIVE_BASE_RADIUS;
+  }
+
+  public DriveState getDriveState() {
+    return driveState;
+  }
+
+  public static void setDriveState(DriveState state) {
+    driveState = state;
+    Logger.recordOutput("DriveState", driveState.toString());
+  }
+
+  public Rotation2d getTargetHeading() {
+    return driveTargetHeading;
+  }
+
+  public static void setTargetHeading(Rotation2d target) {
+    driveTargetHeading = target;
+    Logger.recordOutput("DriveTargetHeading", driveTargetHeading.getDegrees());
   }
 
   /** Returns an array of module translations. */

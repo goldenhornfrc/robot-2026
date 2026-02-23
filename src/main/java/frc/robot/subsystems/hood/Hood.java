@@ -11,7 +11,7 @@ import org.littletonrobotics.junction.Logger;
 public class Hood extends SubsystemBase {
   private HoodIO io;
   private HoodIOInputsAutoLogged inputs = new HoodIOInputsAutoLogged();
-
+  private double goalAngle = 0.0;
   private final Debouncer motorConnectedDebouncer =
       new Debouncer(0.5, Debouncer.DebounceType.kFalling);
 
@@ -54,10 +54,12 @@ public class Hood extends SubsystemBase {
   }
 
   public void setHoodAngle(double angle) {
+    this.goalAngle = angle;
     io.setHoodAngle(angle);
   }
 
   public void setHoodAngle(double angle, double cruiseVel, double acceleration) {
+    this.goalAngle = angle;
     io.setHoodAngle(angle, cruiseVel, acceleration);
   }
 
@@ -106,6 +108,10 @@ public class Hood extends SubsystemBase {
         () -> {
           setHoodAngle(posSupplier.getAsDouble());
         },
-        () -> stop());
+        () -> setHoodAngle(0));
+  }
+
+  public boolean atGoal() {
+    return Math.abs(getHoodAngle() - goalAngle) <= 0.5;
   }
 }

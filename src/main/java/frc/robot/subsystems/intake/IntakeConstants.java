@@ -15,7 +15,7 @@ public class IntakeConstants {
 
   // Pivot motion magic constants
   public static double intakePivotStartingPos = 10.0;
-  public static double intakePivotExtendLimitPos = 13.5;
+  public static double intakePivotExtendLimitPos = -1.0;
   public static double intakePivotAccel = 10.0;
   public static double intakePivotCruiseVel = 3.0;
 

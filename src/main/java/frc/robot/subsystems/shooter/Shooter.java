@@ -105,10 +105,9 @@ public class Shooter extends SubsystemBase {
    *
    * @return true if both motors are at target RPM within tolerance
    */
-  public boolean atSetpoint() {
+  public boolean atGoal() {
     return Math.abs(getVelocityRpm() - targetRpm) < ShooterConstants.RPM_TOLERANCE;
   }
-
   /**
    * Get the current velocity in RPM (average of both motors).
    *

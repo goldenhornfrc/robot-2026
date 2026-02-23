@@ -10,8 +10,10 @@ package frc.robot;
 import com.ctre.phoenix6.SignalLogger;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
+import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.CommandScheduler;
+import frc.robot.subsystems.shooter.LaunchCalculator;
 import org.littletonrobotics.junction.AutoLogOutputManager;
 import org.littletonrobotics.junction.LogFileUtil;
 import org.littletonrobotics.junction.LoggedRobot;
@@ -61,6 +63,20 @@ public class Robot extends LoggedRobot {
   @Override
   public void robotPeriodic() {
     CommandScheduler.getInstance().run();
+    RobotContainer.currentAlliance = robotContainer.m_allianceChooser.get();
+    SmartDashboard.putString("Selected Alliance", RobotContainer.getAlliance().toString());
+    var launchCalculator = LaunchCalculator.getInstance();
+    Logger.recordOutput("LaunchCalculator/Parameters", launchCalculator.getParameters());
+    Logger.recordOutput(
+        "LaunchCalculator/HoodAngleOffsetDeg", launchCalculator.getHoodAngleOffsetDeg());
+    String formattedOffset = String.format("%.1f", launchCalculator.getHoodAngleOffsetDeg());
+    if (formattedOffset.equals("-0.0")) {
+      formattedOffset = "0.0";
+    }
+    SmartDashboard.putString("Hood Angle Offset", formattedOffset);
+
+    // Clear launching parameters
+    launchCalculator.clearLaunchingParameters();
   }
 
   @Override
@@ -82,11 +98,16 @@ public class Robot extends LoggedRobot {
 
   @Override
   public void teleopInit() {
+
     if (autonomousCommand != null) {
       autonomousCommand.cancel();
     }
 
-    RobotState.getInstance().resetPose(new Pose2d(0, 0, Rotation2d.fromDegrees(180)));
+    RobotState.getInstance()
+        .resetPose(
+            new Pose2d(
+                FieldConstants.Hub.oppTopCenterPoint.toTranslation2d(),
+                Rotation2d.fromDegrees(180)));
   }
 
   @Override
@@ -101,7 +122,13 @@ public class Robot extends LoggedRobot {
   public void testPeriodic() {}
 
   @Override
-  public void simulationInit() {}
+  public void simulationInit() {
+    RobotState.getInstance()
+        .resetPose(
+            new Pose2d(
+                FieldConstants.Hub.oppTopCenterPoint.toTranslation2d(),
+                Rotation2d.fromDegrees(180)));
+  }
 
   @Override
   public void simulationPeriodic() {}
