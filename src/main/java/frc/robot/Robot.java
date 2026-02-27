@@ -14,6 +14,7 @@ import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.CommandScheduler;
 import frc.robot.subsystems.shooter.LaunchCalculator;
+import frc.robot.subsystems.turret.Turret;
 import org.littletonrobotics.junction.AutoLogOutputManager;
 import org.littletonrobotics.junction.LogFileUtil;
 import org.littletonrobotics.junction.LoggedRobot;
@@ -128,6 +129,7 @@ public class Robot extends LoggedRobot {
             new Pose2d(
                 FieldConstants.Hub.oppTopCenterPoint.toTranslation2d(),
                 Rotation2d.fromDegrees(180)));
+    Turret.turretCalibrationDone = true;
   }
 
   @Override

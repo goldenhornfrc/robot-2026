@@ -17,7 +17,7 @@ public final class ShooterConstants {
   public static final double KI = 0.0;
   public static final double KD = 0.0;
   public static final double KS = 0.0;
-  public static final double KV = 0.115; // 0.0019;
+  public static final double KV = 0.115;
   public static final double KA = 0.0;
 
   // RPM tolerance for setpoint checking

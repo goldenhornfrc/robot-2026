@@ -27,12 +27,15 @@ import frc.robot.subsystems.drive.ModuleIOSim;
 import frc.robot.subsystems.drive.ModuleIOTalonFX;
 import frc.robot.subsystems.feeder.Feeder;
 import frc.robot.subsystems.feeder.FeederIO;
+import frc.robot.subsystems.feeder.FeederIOSim;
 import frc.robot.subsystems.feeder.FeederIOTalonFX;
 import frc.robot.subsystems.hood.Hood;
 import frc.robot.subsystems.hood.HoodIO;
+import frc.robot.subsystems.hood.HoodIOSim;
 import frc.robot.subsystems.hood.HoodIOTalonFX;
 import frc.robot.subsystems.intake.Intake;
 import frc.robot.subsystems.intake.IntakeIO;
+import frc.robot.subsystems.intake.IntakeIOSim;
 import frc.robot.subsystems.intake.IntakeIOTalonFX;
 import frc.robot.subsystems.intake.IntakePivot;
 import frc.robot.subsystems.intake.IntakePivotIO;
@@ -40,12 +43,15 @@ import frc.robot.subsystems.intake.IntakePivotIOTalonFX;
 import frc.robot.subsystems.shooter.LaunchCalculator;
 import frc.robot.subsystems.shooter.Shooter;
 import frc.robot.subsystems.shooter.ShooterIO;
+import frc.robot.subsystems.shooter.ShooterIOSim;
 import frc.robot.subsystems.shooter.ShooterIOTalonFX;
 import frc.robot.subsystems.spindexer.Spindexer;
 import frc.robot.subsystems.spindexer.SpindexerIO;
+import frc.robot.subsystems.spindexer.SpindexerIOSim;
 import frc.robot.subsystems.spindexer.SpindexerIOTalonFX;
 import frc.robot.subsystems.turret.Turret;
 import frc.robot.subsystems.turret.TurretIO;
+import frc.robot.subsystems.turret.TurretIOSim;
 import frc.robot.subsystems.turret.TurretIOTalonFX;
 import frc.robot.subsystems.vision.Vision;
 import frc.robot.subsystems.vision.VisionConstants;
@@ -133,13 +139,13 @@ public class RobotContainer {
                 new ModuleIOSim(TunerConstants.BackRight));
 
         intakePivot = new IntakePivot(new IntakePivotIO() {});
-        intake = new Intake(new IntakeIO() {});
-        shooter = new Shooter(new ShooterIO() {});
-        spindexer = new Spindexer(new SpindexerIO() {});
+        intake = new Intake(new IntakeIOSim());
+        shooter = new Shooter(new ShooterIOSim());
+        spindexer = new Spindexer(new SpindexerIOSim());
 
-        feeder = new Feeder(new FeederIO() {});
-        turret = new Turret(new TurretIO() {});
-        hood = new Hood(new HoodIO() {});
+        feeder = new Feeder(new FeederIOSim());
+        turret = new Turret(new TurretIOSim());
+        hood = new Hood(new HoodIOSim());
         vision = new Vision(new VisionIO() {});
         /*
         new Vision(
@@ -210,7 +216,7 @@ public class RobotContainer {
             drive,
             () -> -controller.getLeftY(),
             () -> -controller.getLeftX(),
-            () -> -controller.getRightX() * 0.75));
+            () -> -controller.getRightX()));
 
     controller
         .rightBumper()
@@ -222,8 +228,7 @@ public class RobotContainer {
     controller.leftBumper().toggleOnTrue(intake.runIntakeCommand(() -> -6.5));
 
     Trigger inLaunchingTolerance =
-        new Trigger(
-            () -> hood.atGoal() && shooter.atGoal() && turret.atGoal());
+        new Trigger(() -> hood.atGoal() && shooter.atGoal() && turret.atGoal());
 
     controller
         .rightTrigger()
@@ -238,13 +243,13 @@ public class RobotContainer {
                 turret,
                 () -> LaunchCalculator.getInstance().getParameters().turretAngle().getDegrees(),
                 () -> LaunchCalculator.getInstance().getParameters().turretVelocity()))
-                .and(() -> LaunchCalculator.getInstance().getParameters().isValid())
-                .and(() -> !Turret.wrappingAngle)
-                .and(inLaunchingTolerance.debounce(0.25, DebounceType.kFalling))
+        .and(() -> LaunchCalculator.getInstance().getParameters().isValid())
+        .and(() -> !Turret.wrappingAngle)
+        .and(inLaunchingTolerance.debounce(0.25, DebounceType.kFalling))
         .whileTrue(
             Commands.parallel(
-                spindexer.setSpindexerVoltageCommand(() -> 5),
-                feeder.setFeederVoltageCommand(() -> 11)));
+                spindexer.setSpindexerVoltageCommand(() -> 4.25),
+                feeder.setFeederVoltageCommand(() -> 12)));
 
     controller
         .a()
@@ -257,7 +262,8 @@ public class RobotContainer {
                             new SetIntakePivotAngle(intakePivot, 20, true)
                                 .withTimeout(0.3)
                                 .andThen(new WaitCommand(0.1))))
-                .alongWith(IntakeCommands.setIntakeVoltage(5.0, intake)));
+                .alongWith(IntakeCommands.setIntakeVoltage(5.0, intake)))
+        .onFalse(new SetIntakePivotAngle(intakePivot, 0, true));
   }
 
   public Command getAutonomousCommand() {

@@ -12,6 +12,7 @@ import frc.robot.RobotState;
 import frc.robot.subsystems.vision.VisionConstants;
 import frc.robot.util.AllianceFlipUtil;
 import frc.robot.util.GeomUtil;
+import frc.robot.util.LoggedTunableNumber;
 import org.littletonrobotics.junction.Logger;
 
 public class LaunchCalculator {
@@ -21,7 +22,8 @@ public class LaunchCalculator {
   private double hoodAngleOffsetDeg = 0.0;
 
   private final LinearFilter hoodAngleFilter = LinearFilter.movingAverage((int) (0.4 / 0.02));
-  private final LinearFilter turretAngleFilter = LinearFilter.movingAverage((int) (1.5 / 0.02));
+  private final LinearFilter turretAngleFilter =
+      LinearFilter.movingAverage((int) (3)); // 1.5 / 0.02
 
   private double lastHoodAngle;
   private Rotation2d lastTurretAngle;
@@ -29,7 +31,8 @@ public class LaunchCalculator {
   private double turretVelocity;
   private double hoodVelocity;
 
-  private static final double DRAG_CONSTANT = 0.75;
+  private LoggedTunableNumber DRAG_CONSTANT =
+      new LoggedTunableNumber("LaunchCalculator/DragConstant", 1.8);
 
   public static LaunchCalculator getInstance() {
     if (instance == null) instance = new LaunchCalculator();
@@ -87,11 +90,13 @@ public class LaunchCalculator {
     flywheelSpeedMap.put(5.0, 3400.0);
     flywheelSpeedMap.put(5.64, 3600.0);
 
-    timeOfFlightMap.put(5.68, 1.16);
-    timeOfFlightMap.put(4.55, 1.12);
-    timeOfFlightMap.put(3.15, 1.11);
-    timeOfFlightMap.put(1.88, 1.09);
-    timeOfFlightMap.put(1.38, 0.90);
+    timeOfFlightMap.put(5.7, 1.2);
+    timeOfFlightMap.put(5.38, 1.18);
+    timeOfFlightMap.put(4.45, 1.21);
+    timeOfFlightMap.put(3.13, 1.08);
+    timeOfFlightMap.put(2.43, 1.10);
+    timeOfFlightMap.put(1.85, 1.09);
+    timeOfFlightMap.put(1.36, 1.08);
   }
 
   public void setHoodAngleOffsetDeg(double offset) {
@@ -118,80 +123,90 @@ public class LaunchCalculator {
 
     Pose2d estimatedPose = RobotState.getInstance().getEstimatedPose();
     ChassisSpeeds robotRelativeVelocity = RobotState.getInstance().getRobotVelocity();
-    estimatedPose =
+
+    // =========================================================================
+    // PHASE 1: PRE-LAUNCH PREDICTION (Mechanical Phase Delay)
+    // The ball is still in the robot. The robot continues to move and spin.
+    // =========================================================================
+    Pose2d launchRobotPose =
         estimatedPose.exp(
             new Twist2d(
                 robotRelativeVelocity.vxMetersPerSecond * phaseDelay,
                 robotRelativeVelocity.vyMetersPerSecond * phaseDelay,
                 robotRelativeVelocity.omegaRadiansPerSecond * phaseDelay));
 
+    Pose2d launchTurretPose =
+        launchRobotPose.transformBy(GeomUtil.toTransform2d(VisionConstants.ROBOT_TO_TURRET));
+
+    Logger.recordOutput("LaunchCalculator/LaunchTurretPose", launchTurretPose);
+
+    // =========================================================================
+    // PHASE 2: INSTANTANEOUS LAUNCH VELOCITY
+    // Calculate how fast the physical turret is moving through field space
+    // at the exact millisecond the ball leaves the barrel.
+    // =========================================================================
+    ChassisSpeeds fieldVelocity = RobotState.getInstance().getFieldVelocity();
+    double omega = fieldVelocity.omegaRadiansPerSecond;
+
+    // Rotate the turret offset into the field frame using the predicted launch heading
+    Translation2d robotToTurretField =
+        VisionConstants.ROBOT_TO_TURRET
+            .getTranslation()
+            .toTranslation2d()
+            .rotateBy(launchRobotPose.getRotation());
+
+    // v_turret = v_robot + (omega x r)
+    Translation2d turretFieldVelocity =
+        new Translation2d(
+            fieldVelocity.vxMetersPerSecond - (omega * robotToTurretField.getY()),
+            fieldVelocity.vyMetersPerSecond + (omega * robotToTurretField.getX()));
+
+    // =========================================================================
+    // PHASE 3: POST-LAUNCH BALLISTIC DRIFT (Linear Drag Model)
+    // The ball is in the air. It travels in a straight line relative to the
+    // turret's launch velocity, slowed down exponentially by air friction.
+    // =========================================================================
     Translation2d target =
         AllianceFlipUtil.apply(FieldConstants.Hub.topCenterPoint).toTranslation2d();
-    // AllianceFlipUtil.apply();
 
-    Pose2d turretPosition =
-        estimatedPose.transformBy(GeomUtil.toTransform2d(VisionConstants.ROBOT_TO_TURRET));
-    Logger.recordOutput("LaunchCalculator/turretPosition", turretPosition);
-    double turretToTargetDistance = target.getDistance(turretPosition.getTranslation());
-    Logger.recordOutput("LaunchCalculator/turretToTargetDistance", turretToTargetDistance);
-
-    /*
-        // 1. Get the translation offset of the turret relative to the robot center
-        Translation2d robotToTurretTranslation =
-            VisionConstants.ROBOT_TO_TURRET.getTranslation().toTranslation2d();
-
-        // 2. Rotate this offset into field space using the robot's current heading
-        Translation2d fieldRelativeOffset =
-            robotToTurretTranslation.rotateBy(estimatedPose.getRotation());
-    */
-    // 3. Calculate tangential velocity (omega x r)
-    ChassisSpeeds robotVelocity = RobotState.getInstance().getFieldVelocity();
-    double omega = robotVelocity.omegaRadiansPerSecond;
-    double robotAngle = estimatedPose.getRotation().getRadians();
-    /*
-    double turretVelocityX =
-        robotVelocity.vxMetersPerSecond
-            - omega
-                * (robotToTurretTranslation.getX() * Math.sin(robotAngle)
-                    + robotToTurretTranslation.getY() * Math.cos(robotAngle));
-
-    double turretVelocityY =
-        robotVelocity.vyMetersPerSecond
-            + omega
-                * (robotToTurretTranslation.getX() * Math.cos(robotAngle)
-                    - robotToTurretTranslation.getY() * Math.sin(robotAngle));
-    */
-    double timeOfFlight = timeOfFlightMap.get(turretToTargetDistance);
-    Pose2d lookaheadPose = turretPosition;
-    double lookaheadturretToTargetDistance = turretToTargetDistance;
+    Translation2d virtualTarget = target;
+    double lookaheadDistance = target.getDistance(launchTurretPose.getTranslation());
 
     for (int i = 0; i < 20; i++) {
-      // 1. Get the actual time of flight needed to reach the target
-      timeOfFlight = timeOfFlightMap.get(lookaheadturretToTargetDistance);
+      // 1. Look up the time of flight for our current estimated distance
+      double timeOfFlight = timeOfFlightMap.get(lookaheadDistance);
 
-      // 2. Calculate the drag-adjusted effective time of flight
+      // 2. Apply the Drag Constant to find the effective time of flight
       double effectiveTimeOfFlight =
-          DRAG_CONSTANT * (1.0 - Math.exp(-timeOfFlight / DRAG_CONSTANT));
+          DRAG_CONSTANT.get() * (1.0 - Math.exp(-timeOfFlight / DRAG_CONSTANT.get()));
 
-      // 3. Apply the EFFECTIVE time of flight to the robot's displacement
-      Pose2d lookaheadRobotPose =
-          estimatedPose.exp(
-              new Twist2d(
-                  robotRelativeVelocity.vxMetersPerSecond * effectiveTimeOfFlight,
-                  robotRelativeVelocity.vyMetersPerSecond * effectiveTimeOfFlight,
-                  robotRelativeVelocity.omegaRadiansPerSecond * effectiveTimeOfFlight));
+      // 3. Calculate how far the ball will drift sideways in the air
+      Translation2d drift = turretFieldVelocity.times(effectiveTimeOfFlight);
 
-      lookaheadPose =
-          lookaheadRobotPose.transformBy(GeomUtil.toTransform2d(VisionConstants.ROBOT_TO_TURRET));
+      // 4. Shift the target exactly opposite of our drift to cancel it out
+      virtualTarget = target.minus(drift);
 
-      lookaheadturretToTargetDistance = target.getDistance(lookaheadPose.getTranslation());
+      // 5. Update the distance (from the turret to the newly shifted virtual target)
+      lookaheadDistance = virtualTarget.getDistance(launchTurretPose.getTranslation());
     }
-    // Vector from the predicted turret position to the target
+
+    Logger.recordOutput(
+        "LaunchCalculator/VirtualTarget", new Pose2d(virtualTarget, new Rotation2d()));
+    Logger.recordOutput("LaunchCalculator/LookaheadDistance", lookaheadDistance);
+
+    // =========================================================================
+    // PHASE 4: FINAL AIMING & FEEDFORWARD
+    // Aim the predicted turret at the final shifted virtual target.
+    // =========================================================================
     Rotation2d turretTargetAngle =
-        target.minus(lookaheadPose.getTranslation()).getAngle().minus(estimatedPose.getRotation());
-    Logger.recordOutput("LaunchCalculator/Target", new Pose2d(target, new Rotation2d()));
+        virtualTarget
+            .minus(launchTurretPose.getTranslation())
+            .getAngle()
+            .minus(launchRobotPose.getRotation());
+
     Logger.recordOutput("LaunchCalculator/TurretTargetDegrees", turretTargetAngle.getDegrees());
-    hoodAngle = hoodAngleMap.get(lookaheadturretToTargetDistance);
+
+    hoodAngle = hoodAngleMap.get(lookaheadDistance);
 
     if (lastTurretAngle == null) lastTurretAngle = turretTargetAngle;
     if (Double.isNaN(lastHoodAngle)) lastHoodAngle = hoodAngle;
@@ -200,21 +215,19 @@ public class LaunchCalculator {
         turretAngleFilter.calculate(turretTargetAngle.minus(lastTurretAngle).getRadians() / 0.02);
 
     hoodVelocity = hoodAngleFilter.calculate((hoodAngle - lastHoodAngle) / 0.02);
+
     lastTurretAngle = turretTargetAngle;
     lastHoodAngle = hoodAngle;
 
     latestParameters =
         new LaunchingParameters(
-            lookaheadturretToTargetDistance >= minDistance
-                && lookaheadturretToTargetDistance <= maxDistance,
+            lookaheadDistance >= minDistance && lookaheadDistance <= maxDistance,
             turretTargetAngle,
             turretVelocity,
             hoodAngle,
             hoodVelocity,
-            flywheelSpeedMap.get(lookaheadturretToTargetDistance));
+            flywheelSpeedMap.get(lookaheadDistance));
 
-    Logger.recordOutput("LaunchCalculator/LookaheadPose", lookaheadPose);
-    Logger.recordOutput("LaunchCalculator/TurretToTargetDistance", lookaheadturretToTargetDistance);
     return latestParameters;
   }
 

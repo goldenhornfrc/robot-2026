@@ -163,7 +163,11 @@ public class RobotState {
 
   public void addDriveSpeeds(ChassisSpeeds speeds, double yawAngularGyroVelRadPerSec) {
     robotVelocity = speeds;
-    yawAngularGyroVel = Units.radiansToDegrees(yawAngularGyroVelRadPerSec);
+    if (Robot.isSimulation()) {
+      yawAngularGyroVel = Units.radiansToDegrees(speeds.omegaRadiansPerSecond);
+    } else {
+      yawAngularGyroVel = Units.radiansToDegrees(yawAngularGyroVelRadPerSec);
+    }
   }
 
   @AutoLogOutput(key = "RobotState/TurretToFieldAngle")
