@@ -5,9 +5,11 @@ import static frc.robot.util.PhoenixUtil.tryUntilOk;
 import com.ctre.phoenix6.BaseStatusSignal;
 import com.ctre.phoenix6.StatusSignal;
 import com.ctre.phoenix6.configs.TalonFXConfiguration;
+import com.ctre.phoenix6.controls.VelocityVoltage;
 import com.ctre.phoenix6.hardware.TalonFX;
 import com.ctre.phoenix6.signals.InvertedValue;
 import com.ctre.phoenix6.signals.NeutralModeValue;
+import edu.wpi.first.units.measure.AngularVelocity;
 import edu.wpi.first.units.measure.Current;
 import edu.wpi.first.units.measure.Temperature;
 import edu.wpi.first.units.measure.Voltage;
@@ -20,6 +22,7 @@ public class FeederIOTalonFX implements FeederIO {
   private final StatusSignal<Voltage> appliedVolts;
   private final StatusSignal<Current> supplyCurrent;
   private final StatusSignal<Temperature> tempCelsius;
+  private final StatusSignal<AngularVelocity> velocityRPM;
 
   public FeederIOTalonFX() {
     feederMotor = new TalonFX(FeederConstants.FEEDER_MOTOR_ID, Constants.CANIVORE_BUS);
@@ -30,6 +33,7 @@ public class FeederIOTalonFX implements FeederIO {
     appliedVolts = feederMotor.getMotorVoltage();
     supplyCurrent = feederMotor.getSupplyCurrent();
     tempCelsius = feederMotor.getDeviceTemp();
+    velocityRPM = feederMotor.getVelocity();
 
     // Set update frequency for all signals (100 Hz)
     BaseStatusSignal.setUpdateFrequencyForAll(50.0, appliedVolts, supplyCurrent, tempCelsius);
@@ -43,10 +47,10 @@ public class FeederIOTalonFX implements FeederIO {
     config.Slot0.kP = 0.0;
     config.Slot0.kI = 0;
     config.Slot0.kD = 0;
-    config.Slot0.kG = 0.0;
+    config.Slot0.kV = 0.0;
 
     config.MotorOutput.NeutralMode = NeutralModeValue.Coast;
-    config.MotorOutput.Inverted = InvertedValue.CounterClockwise_Positive;
+    config.MotorOutput.Inverted = InvertedValue.Clockwise_Positive;
 
     config.CurrentLimits.SupplyCurrentLimit = FeederConstants.FEEDER_SUPPLY_CURRENT_LIMIT;
     config.CurrentLimits.SupplyCurrentLimitEnable = true;
@@ -75,5 +79,11 @@ public class FeederIOTalonFX implements FeederIO {
     inputs.appliedVolts = appliedVolts.getValueAsDouble();
     inputs.supplyCurrentAmps = supplyCurrent.getValueAsDouble();
     inputs.tempCelsius = tempCelsius.getValueAsDouble();
+    inputs.velocityRPM = velocityRPM.getValueAsDouble() * 60.0;
+  }
+
+  @Override
+  public void runVelocity(double velocityRPM) {
+    feederMotor.setControl(new VelocityVoltage(velocityRPM / 60.0).withEnableFOC(true));
   }
 }

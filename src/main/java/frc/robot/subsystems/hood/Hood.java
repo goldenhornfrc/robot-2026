@@ -4,8 +4,10 @@ import edu.wpi.first.math.filter.Debouncer;
 import edu.wpi.first.wpilibj.Alert;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
+import frc.robot.Robot;
 import frc.robot.util.LoggedTunableNumber;
 import java.util.function.DoubleSupplier;
+import org.littletonrobotics.junction.AutoLogOutput;
 import org.littletonrobotics.junction.Logger;
 
 public class Hood extends SubsystemBase {
@@ -111,7 +113,9 @@ public class Hood extends SubsystemBase {
         () -> setHoodAngle(0));
   }
 
+  @AutoLogOutput(key = "Hood/AtGoal")
   public boolean atGoal() {
-    return Math.abs(getHoodAngle() - goalAngle) <= 0.5;
+
+    return Robot.isSimulation() ? true : Math.abs(getHoodAngle() - goalAngle) <= 0.5;
   }
 }

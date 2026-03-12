@@ -26,18 +26,21 @@ public class DefaultDrive extends Command {
   private final Drive drive;
   private final DoubleSupplier xSupplier, ySupplier, omegaSupplier;
   private boolean isFlipped = false;
-  private static final double ANGLE_KP = 5.0;
-  private static final double ANGLE_KD = 0.08;
+  private static final double ANGLE_KP = 2.0;
+  private static final double ANGLE_KD = 0.0;
   private static final double ANGLE_DEADBAND = 0.1;
 
   private static final double MAINTAIN_KP = 1.5;
   private static final double MAINTAIN_KD = 0.0;
 
+  private static final double ALIGN_KP = 2.0;
+
   private final PIDController angleController = new PIDController(ANGLE_KP, 0.0, ANGLE_KD);
   private final PIDController maintainController = new PIDController(MAINTAIN_KP, 0.0, MAINTAIN_KD);
-
+  private final PIDController alignController = new PIDController(ALIGN_KP, 0, 0);
   private double targetHeading = 0.0;
   private double oldTargetHeading = 0.0;
+  private double targetYPos = 0.0;
   private boolean targetHeadingChanged = false;
   private double maintainTarget;
 
@@ -65,11 +68,12 @@ public class DefaultDrive extends Command {
   public void initialize() {
     angleController.enableContinuousInput(-Math.PI, Math.PI);
     angleController.reset();
-    angleController.setTolerance(Math.toRadians(1.0));
+    angleController.setTolerance(Math.toRadians(1.5));
     maintainTarget = robotState.getEstimatedPose().getRotation().getRadians();
     maintainController.enableContinuousInput(-Math.PI, Math.PI);
     maintainController.setTolerance(Math.toRadians(1.5));
     maintainController.reset();
+    alignController.reset();
   }
 
   @Override
@@ -80,7 +84,7 @@ public class DefaultDrive extends Command {
     Logger.recordOutput(
         "CurrentHeading", Math.toDegrees(robotState.getEstimatedPose().getRotation().getRadians()));
     targetHeading = drive.getTargetHeading().getRadians();
-
+    targetYPos = drive.getTargetYPos();
     targetHeadingChanged = Math.toDegrees(Math.abs(targetHeading - oldTargetHeading)) > 1.0;
 
     if (targetHeadingChanged) {
@@ -106,7 +110,7 @@ public class DefaultDrive extends Command {
 
     // Max Acceleration (Units per second. e.g., 3.0 means 0 to 100% in 0.33s)
     double linearAccelerationLimit = isShooting ? 2.0 : 4.0;
-    double omegaAccelerationLimit = isShooting ? 2.0 : 3.0;
+    double omegaAccelerationLimit = isShooting ? 2.0 : 2.5;
 
     // Apply the max velocity clamps
     double targetX = rawLinearVelocity.getX() * maxLinearVelocityFactor;
@@ -164,13 +168,56 @@ public class DefaultDrive extends Command {
                 omega); // PID output overrides joysticks
         isFlipped = RobotContainer.getAlliance() == Alliance.Red;
 
-        drive.runOpenLoop(
+        drive.runVelocity(
             ChassisSpeeds.fromFieldRelativeSpeeds(
                 speeds,
                 isFlipped
                     ? robotState.getEstimatedPose().getRotation().plus(new Rotation2d(Math.PI))
                     : robotState.getEstimatedPose().getRotation()));
+        break;
 
+      case TRENCH_ALIGN:
+        // 1. Get the pre-set target heading (set by the trigger, NOT calculated every loop)
+        targetHeading = drive.getTargetHeading().getRadians();
+
+        // 2. Calculate rotational effort to snap to heading
+        omega =
+            angleController.calculate(
+                robotState.getEstimatedPose().getRotation().getRadians(), targetHeading);
+        // 3. Define baseline velocities (Driver controls X, but Y will be overridden if aligned)
+        double trenchVx = linearVelocity.getX() * drive.getMaxLinearSpeedMetersPerSec();
+        double trenchVy = linearVelocity.getY() * drive.getMaxLinearSpeedMetersPerSec();
+
+        // 4. Safely calculate the angle error using Rotation2d.minus()
+        double angleErrorDegrees =
+            Math.abs(
+                robotState
+                    .getEstimatedPose()
+                    .getRotation()
+                    .minus(Rotation2d.fromRadians(targetHeading))
+                    .getDegrees());
+
+        // 5. If we are within 5 degrees, take FULL CONTROL of the Y axis
+        if (angleController.atSetpoint()) {
+          // Note: We don't multiply by max speed here unless your ALIGN_KP is tuned
+          trenchVy = alignController.calculate(robotState.getEstimatedPose().getY(), targetYPos);
+          trenchVy *= RobotContainer.getAlliance() == Alliance.Red ? -1 : 1;
+          // to output a -1 to +1 percentage. If KP outputs raw meters/sec, just use it directly!
+        } else {
+          trenchVx = trenchVx * 0.45;
+        }
+
+        // 6. Create the overridden speeds
+        speeds = new ChassisSpeeds(trenchVx, trenchVy, omega);
+        isFlipped = RobotContainer.getAlliance() == Alliance.Red;
+
+        // 7. Drive!
+        drive.runVelocity(
+            ChassisSpeeds.fromFieldRelativeSpeeds(
+                speeds,
+                isFlipped
+                    ? robotState.getEstimatedPose().getRotation().plus(new Rotation2d(Math.PI))
+                    : robotState.getEstimatedPose().getRotation()));
         break;
 
       case MAINTAIN_HEADING:
@@ -191,7 +238,7 @@ public class DefaultDrive extends Command {
                 omega); // PID output overrides joysticks
         isFlipped = RobotContainer.getAlliance() == Alliance.Red;
 
-        drive.runOpenLoop(
+        drive.runVelocity(
             ChassisSpeeds.fromFieldRelativeSpeeds(
                 speeds,
                 isFlipped
@@ -223,7 +270,6 @@ public class DefaultDrive extends Command {
         .transformBy(new Transform2d(linearMagnitude, 0.0, new Rotation2d()))
         .getTranslation();
   }
-
   /** Helper class to cleanly limit acceleration of a given input. */
   public static class DynamicRateLimiter {
     private double lastValue = 0.0;

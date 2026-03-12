@@ -3,68 +3,77 @@
   "waypoints": [
     {
       "anchor": {
-        "x": 2.0,
-        "y": 7.0
+        "x": 12.7,
+        "y": 0.61
       },
       "prevControl": null,
       "nextControl": {
-        "x": 3.013282910175676,
-        "y": 6.5274984191074985
+        "x": 11.703805301908254,
+        "y": 0.6971557427476581
       },
       "isLocked": false,
-      "linkedName": null
+      "linkedName": "TrenchRLShoot"
     },
     {
       "anchor": {
-        "x": 5.166769560390973,
-        "y": 5.0964860911203305
+        "x": 10.405,
+        "y": 1.079
       },
       "prevControl": {
-        "x": 4.166769560390973,
-        "y": 6.0964860911203305
+        "x": 10.481323598150619,
+        "y": 0.6863491266209345
       },
       "nextControl": {
-        "x": 6.166769560390973,
-        "y": 4.0964860911203305
+        "x": 10.357106942160486,
+        "y": 1.3253884230453636
       },
       "isLocked": false,
       "linkedName": null
     },
     {
       "anchor": {
-        "x": 7.0,
-        "y": 1.0
+        "x": 10.573,
+        "y": 2.903
       },
       "prevControl": {
-        "x": 6.75,
-        "y": 2.5
+        "x": 10.411919164831158,
+        "y": 2.5043109425362813
       },
       "nextControl": null,
       "isLocked": false,
-      "linkedName": null
+      "linkedName": "TrenchRLSweep"
     }
   ],
-  "rotationTargets": [],
+  "rotationTargets": [
+    {
+      "waypointRelativePos": 0.26025459688825947,
+      "rotationDegrees": 180.0
+    },
+    {
+      "waypointRelativePos": 1.38,
+      "rotationDegrees": 65.0
+    }
+  ],
   "constraintZones": [],
   "pointTowardsZones": [],
   "eventMarkers": [],
   "globalConstraints": {
-    "maxVelocity": 3.0,
+    "maxVelocity": 3.8,
     "maxAcceleration": 3.0,
     "maxAngularVelocity": 540.0,
-    "maxAngularAcceleration": 720.0,
+    "maxAngularAcceleration": 540.0,
     "nominalVoltage": 12.0,
     "unlimited": false
   },
   "goalEndState": {
     "velocity": 0,
-    "rotation": 0.0
+    "rotation": 65.0
   },
   "reversed": false,
-  "folder": null,
+  "folder": "Red Left Side",
   "idealStartingState": {
     "velocity": 0,
     "rotation": 0.0
   },
-  "useDefaultConstraints": false
+  "useDefaultConstraints": true
 }

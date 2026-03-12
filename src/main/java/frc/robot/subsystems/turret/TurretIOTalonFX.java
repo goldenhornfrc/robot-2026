@@ -45,7 +45,7 @@ public class TurretIOTalonFX implements TurretIO {
 
     // Set update frequency for all signals (100 Hz)
     BaseStatusSignal.setUpdateFrequencyForAll(
-        100.0, position, velocity, appliedVolts, supplyCurrent, tempCelsius);
+        75.0, position, velocity, appliedVolts, supplyCurrent, tempCelsius);
   }
 
   public void configTurretTalonFX(TalonFX talon) {

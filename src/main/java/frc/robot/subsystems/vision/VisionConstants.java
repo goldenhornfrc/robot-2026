@@ -45,14 +45,14 @@ public class VisionConstants {
   // -0.1198m forward (actually backwards), 0.184m right (-Y), 0.411m up
   public static final Transform3d ROBOT_TO_TURRET =
       new Transform3d(
-          new Translation3d(-0.1198, -0.184, 0.411), new Rotation3d() // 0 roll, 0 pitch, 0 yaw
+          new Translation3d(-0.116, -0.1935, 0.335), new Rotation3d() // -0.1198, -0.184
           );
 
   // --- 2. TURRET CENTER TO CAMERA LENS ---
   // 0.1726m radius (X), centered left/right (Y=0), 0.0534m up (Z)
   public static final Transform3d TURRET_TO_CAMERA =
       new Transform3d(
-          new Translation3d(0.172649585, 0.0, 0.053482),
+          new Translation3d(0.18245, 0.0, 0.128),
           new Rotation3d(
               0.0, // Roll
               Units.degreesToRadians(

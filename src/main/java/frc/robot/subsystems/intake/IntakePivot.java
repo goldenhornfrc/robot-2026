@@ -18,7 +18,7 @@ public class IntakePivot extends SubsystemBase {
 
   public IntakePivot(IntakePivotIO io) {
     this.io = io;
-
+    io.resetPivotAngle(IntakeConstants.intakePivotStartingPos);
     motorDisconnected = new Alert("Intake pivot motor disconnected!", Alert.AlertType.kWarning);
   }
 

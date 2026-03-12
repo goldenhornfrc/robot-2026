@@ -33,7 +33,7 @@ public class IntakePivotIOTalonFX implements IntakePivotIO {
     pivotMotor = new TalonFX(IntakeConstants.INTAKE_PIVOT_MOTOR_ID, Constants.CANIVORE_BUS);
 
     configPivotTalonFX(pivotMotor);
-    pivotMotor.setPosition(IntakeConstants.intakePivotStartingPos / 360.0);
+    // pivotMotor.setPosition(IntakeConstants.intakePivotStartingPos / 360.0);
 
     // Get StatusSignals
     position = pivotMotor.getPosition();
@@ -42,14 +42,13 @@ public class IntakePivotIOTalonFX implements IntakePivotIO {
     supplyCurrent = pivotMotor.getSupplyCurrent();
     tempCelsius = pivotMotor.getDeviceTemp();
 
-    // Set update frequency for all signals (100 Hz)
     BaseStatusSignal.setUpdateFrequencyForAll(
-        100.0, position, velocity, appliedVolts, supplyCurrent, tempCelsius);
+        50.0, position, velocity, appliedVolts, supplyCurrent, tempCelsius);
   }
 
   public void configPivotTalonFX(TalonFX talon) {
 
-    talon.getConfigurator().apply(new TalonFXConfiguration());
+    // talon.getConfigurator().apply(new TalonFXConfiguration());
     TalonFXConfiguration config = new TalonFXConfiguration();
 
     config.Slot0.kP = IntakeConstants.kP;

@@ -18,6 +18,7 @@ import edu.wpi.first.math.numbers.N1;
 import edu.wpi.first.math.numbers.N3;
 import edu.wpi.first.math.util.Units;
 import frc.robot.generated.TunerConstants;
+import frc.robot.util.Bounds;
 import java.util.*;
 import org.littletonrobotics.junction.AutoLogOutput;
 import org.littletonrobotics.junction.Logger;
@@ -37,7 +38,7 @@ public class RobotState {
 
   // Odometry & Estimation fields
   private final SwerveDriveKinematics kinematics;
-  private final SwerveDrivePoseEstimator swerveOdometry;
+  // private final SwerveDrivePoseEstimator swerveOdometry;
   private final SwerveDrivePoseEstimator swervePoseEstimator;
 
   // Store last inputs for reset and delta calculations
@@ -70,15 +71,16 @@ public class RobotState {
             new Translation2d(
                 TunerConstants.BackRight.LocationX, TunerConstants.BackRight.LocationY));
 
-    swerveOdometry =
-        new SwerveDrivePoseEstimator(
-            kinematics,
-            lastGyroRotation,
-            lastWheelPositions,
-            new Pose2d(),
-            odometryStateStdDevs,
-            new Matrix<>(VecBuilder.fill(999, 999, 999))); // No vision correction for odometry
-
+    /*
+        swerveOdometry =
+            new SwerveDrivePoseEstimator(
+                kinematics,
+                lastGyroRotation,
+                lastWheelPositions,
+                new Pose2d(),
+                odometryStateStdDevs,
+                new Matrix<>(VecBuilder.fill(999, 999, 999))); // No vision correction for odometry
+    */
     swervePoseEstimator =
         new SwerveDrivePoseEstimator(
             kinematics,
@@ -97,7 +99,7 @@ public class RobotState {
     odometryPose = pose;
 
     // Reset both the pure odometry and the estimator
-    swerveOdometry.resetPosition(lastGyroRotation, lastWheelPositions, pose);
+    // swerveOdometry.resetPosition(lastGyroRotation, lastWheelPositions, pose);
     swervePoseEstimator.resetPosition(lastGyroRotation, lastWheelPositions, pose);
   }
 
@@ -131,10 +133,11 @@ public class RobotState {
     lastWheelPositions = observation.wheelPositions;
 
     // Update pure odometry
+    /*
     odometryPose =
         swerveOdometry.updateWithTime(
             observation.timestamp, lastGyroRotation, observation.wheelPositions);
-
+    */
     // Update pose estimator
     estimatedPose =
         swervePoseEstimator.updateWithTime(
@@ -179,6 +182,69 @@ public class RobotState {
   /** Degrees per sec */
   public double getDriveAngularVelocity() {
     return yawAngularGyroVel;
+  }
+
+  /**
+   * Predicts if the robot will be within the specified bounds after a given lookahead time.
+   *
+   * @param bounds The boundaries to check against.
+   * @param dtSeconds The lookahead time in seconds.
+   * @return True if the predicted position is within the bounds.
+   */
+  public boolean isPredictedToBeInBounds(Bounds bounds, double dtSeconds) {
+    // 1. Get current robot-relative velocity
+    ChassisSpeeds velocity = getRobotVelocity();
+
+    // 2. Calculate the twist (change in pose) over the lookahead time
+    Twist2d movementTwist =
+        new Twist2d(
+            velocity.vxMetersPerSecond * dtSeconds,
+            velocity.vyMetersPerSecond * dtSeconds,
+            velocity.omegaRadiansPerSecond * dtSeconds);
+
+    // 3. Apply the twist to the current estimated pose to get the predicted future pose
+    Pose2d predictedPose = getEstimatedPose().exp(movementTwist);
+
+    // 4. Check if the predicted translation is within the bounds
+    return bounds.contains(predictedPose.getTranslation());
+  }
+
+  /**
+   * Sweeps the predicted path of the robot to see if it will pass through the bounds at ANY POINT
+   * between now and the max lookahead time. Prevents high-speed "tunneling".
+   */
+  public boolean willPassThroughBounds(Bounds bounds, double maxLookaheadSeconds) {
+    ChassisSpeeds velocity = getRobotVelocity();
+    Pose2d currentPose = getEstimatedPose();
+
+    // Step size for checking (0.1 seconds)
+    // At a max FRC speed of ~5.5 m/s, 0.1s = 0.55 meters of travel per step.
+    // Because the trench is > 1.1 meters deep, it is physically impossible
+    // for the robot to jump over the trench in a single 0.55m step!
+    double stepSize = 0.25;
+
+    for (double t = 0; t <= maxLookaheadSeconds; t += stepSize) {
+      Twist2d movementTwist =
+          new Twist2d(
+              velocity.vxMetersPerSecond * t,
+              velocity.vyMetersPerSecond * t,
+              velocity.omegaRadiansPerSecond * t);
+
+      Pose2d predictedPose = currentPose.exp(movementTwist);
+
+      if (bounds.contains(predictedPose.getTranslation())) {
+        return true; // We found a collision along the projected path!
+      }
+    }
+
+    // Do one final check exactly at maxLookaheadSeconds just in case
+    // maxLookaheadSeconds isn't perfectly divisible by stepSize.
+    Twist2d finalTwist =
+        new Twist2d(
+            velocity.vxMetersPerSecond * maxLookaheadSeconds,
+            velocity.vyMetersPerSecond * maxLookaheadSeconds,
+            velocity.omegaRadiansPerSecond * maxLookaheadSeconds);
+    return bounds.contains(currentPose.exp(finalTwist).getTranslation());
   }
 
   // MARK: - Type declarations

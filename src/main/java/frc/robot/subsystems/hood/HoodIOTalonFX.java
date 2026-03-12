@@ -44,7 +44,7 @@ public class HoodIOTalonFX implements HoodIO {
 
     // Set update frequency for all signals (100 Hz)
     BaseStatusSignal.setUpdateFrequencyForAll(
-        100.0, position, velocity, appliedVolts, supplyCurrent, tempCelsius);
+        75.0, position, velocity, appliedVolts, supplyCurrent, tempCelsius);
   }
 
   public void configHoodTalonFX(TalonFX talon) {
@@ -85,6 +85,8 @@ public class HoodIOTalonFX implements HoodIO {
 
     controllerConfig.OpenLoopRamps.DutyCycleOpenLoopRampPeriod = 0;
     controllerConfig.OpenLoopRamps.VoltageOpenLoopRampPeriod = 0;
+
+    controllerConfig.Audio.BeepOnConfig = true;
 
     tryUntilOk(5, () -> talon.getConfigurator().apply(controllerConfig));
   }

@@ -8,6 +8,8 @@
 package frc.robot.util;
 
 import edu.wpi.first.math.MathUtil;
+import edu.wpi.first.math.geometry.Pose2d;
+import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Translation2d;
 
 public record Bounds(double minX, double maxX, double minY, double maxY) {
@@ -24,5 +26,15 @@ public record Bounds(double minX, double maxX, double minY, double maxY) {
     return new Translation2d(
         MathUtil.clamp(translation.getX(), minX(), maxX()),
         MathUtil.clamp(translation.getY(), minY(), maxY()));
+  }
+
+  public Pose2d[] getCorners() {
+    return new Pose2d[] {
+      new Pose2d(minX, minY, Rotation2d.kZero),
+      new Pose2d(maxX, minY, Rotation2d.kZero),
+      new Pose2d(maxX, maxY, Rotation2d.kZero),
+      new Pose2d(minX, maxY, Rotation2d.kZero),
+      new Pose2d(minX, minY, Rotation2d.kZero), // to visualize a closed loop
+    };
   }
 }

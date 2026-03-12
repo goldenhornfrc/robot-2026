@@ -11,8 +11,11 @@ import com.ctre.phoenix6.SignalLogger;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
+import edu.wpi.first.wpilibj.util.Color;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.CommandScheduler;
+import frc.robot.subsystems.hood.HoodConstants;
+import frc.robot.subsystems.intake.IntakeConstants;
 import frc.robot.subsystems.shooter.LaunchCalculator;
 import frc.robot.subsystems.turret.Turret;
 import org.littletonrobotics.junction.AutoLogOutputManager;
@@ -26,6 +29,7 @@ import org.littletonrobotics.junction.wpilog.WPILOGWriter;
 public class Robot extends LoggedRobot {
   private Command autonomousCommand;
   private RobotContainer robotContainer;
+  public static boolean isAuto = false;
 
   public Robot() {
     Logger.recordMetadata("ProjectName", BuildConstants.MAVEN_NAME);
@@ -78,10 +82,15 @@ public class Robot extends LoggedRobot {
 
     // Clear launching parameters
     launchCalculator.clearLaunchingParameters();
+    // Zones.logAllZones();
   }
 
   @Override
-  public void disabledInit() {}
+  public void disabledInit() {
+    isAuto = false;
+    //CommandScheduler.getInstance()
+     //   .schedule(robotContainer.ledSubsystem.fallingBlocksCommand(Color.kOrange, 0.1));
+  }
 
   @Override
   public void disabledPeriodic() {}
@@ -89,6 +98,10 @@ public class Robot extends LoggedRobot {
   @Override
   public void autonomousInit() {
     autonomousCommand = robotContainer.getAutonomousCommand();
+    robotContainer.hood.resetHoodAngle(HoodConstants.kHoodStartingPos);
+    robotContainer.intakePivot.resetPivotAngle(IntakeConstants.intakePivotStartingPos);
+    isAuto = true;
+    CommandScheduler.getInstance().cancelAll();
     if (autonomousCommand != null) {
       CommandScheduler.getInstance().schedule(autonomousCommand);
     }
@@ -99,16 +112,19 @@ public class Robot extends LoggedRobot {
 
   @Override
   public void teleopInit() {
-
+    isAuto = false;
     if (autonomousCommand != null) {
       autonomousCommand.cancel();
     }
+    robotContainer.hood.setHoodAngle(0);
+    CommandScheduler.getInstance().cancelAll();
 
+    /*
     RobotState.getInstance()
         .resetPose(
             new Pose2d(
-                FieldConstants.Hub.oppTopCenterPoint.toTranslation2d(),
-                Rotation2d.fromDegrees(180)));
+                FieldConstants.Hub.oppTopCenterPoint.toTranslation2d(), Rotation2d.fromDegrees(0)));
+                */
   }
 
   @Override

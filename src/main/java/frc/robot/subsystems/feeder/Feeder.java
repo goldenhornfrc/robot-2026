@@ -41,8 +41,17 @@ public class Feeder extends SubsystemBase {
     io.stop();
   }
 
+  public void runVelocity(double velocityRPM) {
+    io.runVelocity(velocityRPM);
+  }
+
   public Command setFeederVoltageCommand(DoubleSupplier voltageSupplier) {
     return runEnd(() -> setVoltage(voltageSupplier.getAsDouble()), this::stop)
         .withName("Feeder Voltage Command (" + voltageSupplier.getAsDouble() + "V)");
+  }
+
+  public Command runFeederVelocityCommand(DoubleSupplier velocitySupplier) {
+    return runEnd(() -> runVelocity(velocitySupplier.getAsDouble()), this::stop)
+        .withName("Feeder Velocity Command (" + velocitySupplier.getAsDouble() + "RPM)");
   }
 }

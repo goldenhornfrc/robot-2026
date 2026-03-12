@@ -70,22 +70,23 @@ public class ShooterIOTalonFX implements ShooterIO {
     controllerConfig.kV = ShooterConstants.KV;
     controllerConfig.kA = ShooterConstants.KA;
 
+    config.Slot0 = controllerConfig;
     // Apply base configuration to both motors
-    tryUntilOk(5, () -> leftMotor.getConfigurator().apply(config));
-    tryUntilOk(5, () -> rightMotor.getConfigurator().apply(config));
+    // tryUntilOk(5, () -> leftMotor.getConfigurator().apply(config));
+    // tryUntilOk(5, () -> rightMotor.getConfigurator().apply(config));
 
     // Set motor inversions
-    TalonFXConfiguration leftConfig = new TalonFXConfiguration();
+    TalonFXConfiguration leftConfig = config.clone();
     leftConfig.MotorOutput.Inverted = InvertedValue.CounterClockwise_Positive;
     tryUntilOk(5, () -> leftMotor.getConfigurator().apply(leftConfig));
 
-    TalonFXConfiguration rightConfig = new TalonFXConfiguration();
+    TalonFXConfiguration rightConfig = config.clone();
     rightConfig.MotorOutput.Inverted = InvertedValue.Clockwise_Positive;
     tryUntilOk(5, () -> rightMotor.getConfigurator().apply(rightConfig));
 
     // Apply PID config
-    tryUntilOk(5, () -> leftMotor.getConfigurator().apply(controllerConfig));
-    tryUntilOk(5, () -> rightMotor.getConfigurator().apply(controllerConfig));
+    // tryUntilOk(5, () -> leftMotor.getConfigurator().apply(controllerConfig));
+    // tryUntilOk(5, () -> rightMotor.getConfigurator().apply(controllerConfig));
 
     // Get status signals
     leftPosition = leftMotor.getPosition();

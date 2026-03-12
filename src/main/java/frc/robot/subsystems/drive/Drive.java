@@ -9,15 +9,24 @@ package frc.robot.subsystems.drive;
 
 import static edu.wpi.first.units.Units.*;
 
+import com.pathplanner.lib.auto.AutoBuilder;
+import com.pathplanner.lib.config.ModuleConfig;
+import com.pathplanner.lib.config.PIDConstants;
+import com.pathplanner.lib.config.RobotConfig;
+import com.pathplanner.lib.controllers.PPHolonomicDriveController;
+import com.pathplanner.lib.pathfinding.Pathfinding;
+import com.pathplanner.lib.util.PathPlannerLogging;
 import edu.wpi.first.hal.FRCNetComm.tInstances;
 import edu.wpi.first.hal.FRCNetComm.tResourceType;
 import edu.wpi.first.hal.HAL;
+import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.math.kinematics.ChassisSpeeds;
 import edu.wpi.first.math.kinematics.SwerveDriveKinematics;
 import edu.wpi.first.math.kinematics.SwerveModulePosition;
 import edu.wpi.first.math.kinematics.SwerveModuleState;
+import edu.wpi.first.math.system.plant.DCMotor;
 import edu.wpi.first.wpilibj.Alert;
 import edu.wpi.first.wpilibj.Alert.AlertType;
 import edu.wpi.first.wpilibj.DriverStation;
@@ -28,6 +37,7 @@ import frc.robot.Constants;
 import frc.robot.Constants.Mode;
 import frc.robot.RobotState;
 import frc.robot.generated.TunerConstants;
+import frc.robot.util.LocalADStarAK;
 import java.util.Optional;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
@@ -40,13 +50,15 @@ public class Drive extends SubsystemBase {
     TELEOP_DRIVE,
     MAINTAIN_HEADING,
     SNAP_HEADING,
+    TRENCH_ALIGN
   }
 
   private static DriveState driveState = DriveState.TELEOP_DRIVE;
   private static Rotation2d driveTargetHeading = new Rotation2d();
+  private static double driveTargetYPos = 0.0;
 
   // TunerConstants doesn't include these constants, so they are declared locally
-  static final double ODOMETRY_FREQUENCY = TunerConstants.kCANBus.isNetworkFD() ? 250.0 : 100.0;
+  static final double ODOMETRY_FREQUENCY = TunerConstants.kCANBus.isNetworkFD() ? 200.0 : 100.0;
   public static final double DRIVE_BASE_RADIUS =
       Math.max(
           Math.max(
@@ -67,6 +79,23 @@ public class Drive extends SubsystemBase {
   private SwerveDriveKinematics kinematics = new SwerveDriveKinematics(getModuleTranslations());
   public static boolean isShooting = false;
 
+  private static final double ROBOT_MASS_KG = 65.0;
+  private static final double ROBOT_MOI = 5.850;
+  private static final double WHEEL_COF = 1.2;
+  private static final RobotConfig PP_CONFIG =
+      new RobotConfig(
+          ROBOT_MASS_KG,
+          ROBOT_MOI,
+          new ModuleConfig(
+              TunerConstants.FrontLeft.WheelRadius,
+              TunerConstants.kSpeedAt12Volts.in(MetersPerSecond),
+              WHEEL_COF,
+              DCMotor.getKrakenX60Foc(1)
+                  .withReduction(TunerConstants.FrontLeft.DriveMotorGearRatio),
+              TunerConstants.FrontLeft.SlipCurrent,
+              1),
+          getModuleTranslations());
+
   public Drive(
       GyroIO gyroIO,
       ModuleIO flModuleIO,
@@ -84,6 +113,28 @@ public class Drive extends SubsystemBase {
 
     // Start odometry thread
     PhoenixOdometryThread.getInstance().start();
+
+    AutoBuilder.configure(
+        RobotState.getInstance()::getEstimatedPose,
+        RobotState.getInstance()::resetPose,
+        this::getChassisSpeeds,
+        this::runVelocity,
+        new PPHolonomicDriveController(
+            new PIDConstants(3.0, 0.0, 0.0), new PIDConstants(5.0, 0.0, 0.0)),
+        PP_CONFIG,
+        () -> false,
+        this);
+
+    Pathfinding.setPathfinder(new LocalADStarAK());
+
+    PathPlannerLogging.setLogActivePathCallback(
+        (activePath) -> {
+          Logger.recordOutput("Odometry/Trajectory", activePath.toArray(new Pose2d[0]));
+        });
+    PathPlannerLogging.setLogTargetPoseCallback(
+        (targetPose) -> {
+          Logger.recordOutput("Odometry/TrajectorySetpoint", targetPose);
+        });
 
     // Configure SysId
     sysId =
@@ -284,7 +335,16 @@ public class Drive extends SubsystemBase {
 
   public static void setDriveState(DriveState state) {
     driveState = state;
-    Logger.recordOutput("DriveState", driveState.toString());
+    Logger.recordOutput("Drive/DriveState", driveState.toString());
+  }
+
+  public double getTargetYPos() {
+    return driveTargetYPos;
+  }
+
+  public static void setTargetYPos(double target) {
+    driveTargetYPos = target;
+    Logger.recordOutput("Drive/TargetYPos", driveTargetYPos);
   }
 
   public Rotation2d getTargetHeading() {
@@ -293,7 +353,7 @@ public class Drive extends SubsystemBase {
 
   public static void setTargetHeading(Rotation2d target) {
     driveTargetHeading = target;
-    Logger.recordOutput("DriveTargetHeading", driveTargetHeading.getDegrees());
+    Logger.recordOutput("Drive/TargetHeading", driveTargetHeading.getDegrees());
   }
 
   /** Returns an array of module translations. */

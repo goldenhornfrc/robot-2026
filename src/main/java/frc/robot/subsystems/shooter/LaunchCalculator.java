@@ -7,7 +7,9 @@ import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.math.geometry.Twist2d;
 import edu.wpi.first.math.interpolation.InterpolatingDoubleTreeMap;
 import edu.wpi.first.math.kinematics.ChassisSpeeds;
+import edu.wpi.first.wpilibj.DriverStation.Alliance;
 import frc.robot.FieldConstants;
+import frc.robot.RobotContainer;
 import frc.robot.RobotState;
 import frc.robot.subsystems.vision.VisionConstants;
 import frc.robot.util.AllianceFlipUtil;
@@ -31,8 +33,15 @@ public class LaunchCalculator {
   private double turretVelocity;
   private double hoodVelocity;
 
+  public enum DesiredAction {
+    SHOOT,
+    FEED
+  }
+
+  public DesiredAction desiredAction = DesiredAction.SHOOT;
+
   private LoggedTunableNumber DRAG_CONSTANT =
-      new LoggedTunableNumber("LaunchCalculator/DragConstant", 1.8);
+      new LoggedTunableNumber("LaunchCalculator/DragConstant", 2.15); // 1.8
 
   public static LaunchCalculator getInstance() {
     if (instance == null) instance = new LaunchCalculator();
@@ -56,47 +65,54 @@ public class LaunchCalculator {
   private static final InterpolatingDoubleTreeMap hoodAngleMap = new InterpolatingDoubleTreeMap();
   private static final InterpolatingDoubleTreeMap flywheelSpeedMap =
       new InterpolatingDoubleTreeMap();
+
+  private static final InterpolatingDoubleTreeMap feedHoodAngleMap =
+      new InterpolatingDoubleTreeMap();
+  private static final InterpolatingDoubleTreeMap feedFlywheelSpeedMap =
+      new InterpolatingDoubleTreeMap();
+
   private static final InterpolatingDoubleTreeMap timeOfFlightMap =
       new InterpolatingDoubleTreeMap();
 
   static {
-    minDistance = 1.35;
-    maxDistance = 5.64;
+    minDistance = 1.18;
+    maxDistance = 5.5;
     phaseDelay = 0.03;
 
-    hoodAngleMap.put(1.35, 0.0);
-    hoodAngleMap.put(1.75, 2.0);
-    hoodAngleMap.put(2.05, 5.0);
-    hoodAngleMap.put(2.38, 8.0);
-    hoodAngleMap.put(2.75, 10.0);
-    hoodAngleMap.put(3.1, 13.0);
-    hoodAngleMap.put(3.5, 13.0);
-    hoodAngleMap.put(4.0, 15.0);
-    hoodAngleMap.put(4.4, 16.0);
-    hoodAngleMap.put(4.83, 19.0);
-    hoodAngleMap.put(5.0, 21.0);
-    hoodAngleMap.put(5.64, 24.0);
+    hoodAngleMap.put(1.18, 2.0);
+    hoodAngleMap.put(1.7, 7.0);
+    hoodAngleMap.put(2.18, 10.0);
+    hoodAngleMap.put(2.7, 14.0);
+    hoodAngleMap.put(3.2, 18.5);
+    hoodAngleMap.put(3.7, 20.0);
+    hoodAngleMap.put(4.2, 21.0);
+    hoodAngleMap.put(4.7, 23.0);
+    hoodAngleMap.put(5.3, 25.0);
 
-    flywheelSpeedMap.put(1.35, 2700.0);
-    flywheelSpeedMap.put(1.75, 2700.0);
-    flywheelSpeedMap.put(2.055, 2700.0);
-    flywheelSpeedMap.put(2.38, 2725.0);
-    flywheelSpeedMap.put(2.75, 2750.0);
-    flywheelSpeedMap.put(3.1, 2900.0);
-    flywheelSpeedMap.put(3.5, 3000.0);
-    flywheelSpeedMap.put(4.0, 3075.0);
-    flywheelSpeedMap.put(4.4, 3200.0);
-    flywheelSpeedMap.put(4.83, 3300.0);
-    flywheelSpeedMap.put(5.0, 3400.0);
-    flywheelSpeedMap.put(5.64, 3600.0);
+    feedHoodAngleMap.put(12.0, 25.0);
+    feedHoodAngleMap.put(5.2, 25.0);
 
-    timeOfFlightMap.put(5.7, 1.2);
-    timeOfFlightMap.put(5.38, 1.18);
-    timeOfFlightMap.put(4.45, 1.21);
-    timeOfFlightMap.put(3.13, 1.08);
-    timeOfFlightMap.put(2.43, 1.10);
-    timeOfFlightMap.put(1.85, 1.09);
-    timeOfFlightMap.put(1.36, 1.08);
+    feedFlywheelSpeedMap.put(12.0, 4700.0);
+    feedFlywheelSpeedMap.put(7.5, 3900.0);
+    feedFlywheelSpeedMap.put(5.2, 3400.0);
+
+    flywheelSpeedMap.put(1.18, 2800.0);
+    flywheelSpeedMap.put(1.7, 2900.0);
+    flywheelSpeedMap.put(2.18, 3000.0);
+    flywheelSpeedMap.put(2.7, 3000.0);
+    flywheelSpeedMap.put(3.2, 3150.0);
+    flywheelSpeedMap.put(3.7, 3300.0);
+    flywheelSpeedMap.put(4.2, 3500.0);
+    flywheelSpeedMap.put(4.7, 3600.0);
+    flywheelSpeedMap.put(5.3, 3800.0);
+
+    timeOfFlightMap.put(5.7, 1.25);
+    timeOfFlightMap.put(5.3, 1.23);
+    timeOfFlightMap.put(4.3, 1.02);
+    timeOfFlightMap.put(3.3, 1.23);
+    timeOfFlightMap.put(2.3, 1.14);
+    timeOfFlightMap.put(1.3, 1.18);
+    timeOfFlightMap.put(1.1, 1.18);
   }
 
   public void setHoodAngleOffsetDeg(double offset) {
@@ -166,8 +182,25 @@ public class LaunchCalculator {
     // The ball is in the air. It travels in a straight line relative to the
     // turret's launch velocity, slowed down exponentially by air friction.
     // =========================================================================
-    Translation2d target =
-        AllianceFlipUtil.apply(FieldConstants.Hub.topCenterPoint).toTranslation2d();
+    Translation2d target;
+    if (desiredAction == DesiredAction.FEED) {
+      var outpostPos = AllianceFlipUtil.apply(FieldConstants.Outpost.centerPoint);
+      if (estimatedPose.getY() >= (FieldConstants.fieldWidth / 2.0)) {
+        target =
+            RobotContainer.getAlliance() == Alliance.Blue
+                ? new Translation2d(
+                    outpostPos.getX(), FieldConstants.fieldWidth - outpostPos.getY())
+                : outpostPos;
+      } else {
+        target =
+            RobotContainer.getAlliance() == Alliance.Blue
+                ? outpostPos
+                : new Translation2d(
+                    outpostPos.getX(), FieldConstants.fieldWidth - outpostPos.getY());
+      }
+    } else {
+      target = AllianceFlipUtil.apply(FieldConstants.Hub.topCenterPoint).toTranslation2d();
+    }
 
     Translation2d virtualTarget = target;
     double lookaheadDistance = target.getDistance(launchTurretPose.getTranslation());
@@ -206,7 +239,10 @@ public class LaunchCalculator {
 
     Logger.recordOutput("LaunchCalculator/TurretTargetDegrees", turretTargetAngle.getDegrees());
 
-    hoodAngle = hoodAngleMap.get(lookaheadDistance);
+    hoodAngle =
+        desiredAction == DesiredAction.SHOOT
+            ? hoodAngleMap.get(lookaheadDistance)
+            : feedHoodAngleMap.get(lookaheadDistance);
 
     if (lastTurretAngle == null) lastTurretAngle = turretTargetAngle;
     if (Double.isNaN(lastHoodAngle)) lastHoodAngle = hoodAngle;
@@ -221,12 +257,16 @@ public class LaunchCalculator {
 
     latestParameters =
         new LaunchingParameters(
-            lookaheadDistance >= minDistance && lookaheadDistance <= maxDistance,
+            desiredAction == DesiredAction.SHOOT
+                ? (lookaheadDistance >= minDistance && lookaheadDistance <= maxDistance)
+                : true,
             turretTargetAngle,
             turretVelocity,
             hoodAngle,
             hoodVelocity,
-            flywheelSpeedMap.get(lookaheadDistance));
+            desiredAction == DesiredAction.SHOOT
+                ? flywheelSpeedMap.get(lookaheadDistance)
+                : feedFlywheelSpeedMap.get(lookaheadDistance));
 
     return latestParameters;
   }

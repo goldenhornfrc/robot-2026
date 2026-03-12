@@ -52,7 +52,7 @@ public class IntakeIOTalonFX implements IntakeIO {
     tempCelsius = motor.getDeviceTemp();
 
     // Set update frequency for all signals (100 Hz)
-    BaseStatusSignal.setUpdateFrequencyForAll(50.0, appliedVolts, supplyCurrent, tempCelsius);
+    BaseStatusSignal.setUpdateFrequencyForAll(25.0, appliedVolts, supplyCurrent, tempCelsius);
   }
 
   @Override

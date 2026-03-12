@@ -16,8 +16,8 @@ public class TrackTarget extends Command {
   private final SimpleMotorFeedforward feedforward =
       new SimpleMotorFeedforward(TurretConstants.kS, TurretConstants.kV, TurretConstants.kA);
 
-  private static final double MIN_ANGLE_DEG = -304.0;
-  private static final double MAX_ANGLE_DEG = 75.0;
+  private static final double MIN_ANGLE_DEG = TurretConstants.kTurretCWLimit;
+  private static final double MAX_ANGLE_DEG = TurretConstants.kTurretCCWLimit;
 
   /**
    * Tracks a robot-relative target angle with the turret using predictive feedforward.

@@ -195,7 +195,6 @@ public class FieldConstants {
     public static final Translation2d oppFarRightCorner = Hub.oppFarLeftCorner;
   }
 
-  /** Left Trench related constants */
   public static class LeftTrench {
     // Dimensions
     public static final double width = Units.inchesToMeters(65.65);
@@ -209,7 +208,8 @@ public class FieldConstants {
         new Translation3d(LinesVertical.hubCenter, fieldWidth, openingHeight);
     public static final Translation3d openingTopRight =
         new Translation3d(LinesVertical.hubCenter, fieldWidth - openingWidth, openingHeight);
-
+    public static final double centerYPos =
+        AprilTagLayoutType.OFFICIAL.getLayout().getTagPose(22).get().getY();
     // Relevant reference points on opposing side
     public static final Translation3d oppOpeningTopLeft =
         new Translation3d(LinesVertical.oppHubCenter, fieldWidth, openingHeight);
@@ -231,7 +231,8 @@ public class FieldConstants {
         new Translation3d(LinesVertical.hubCenter, openingWidth, openingHeight);
     public static final Translation3d openingTopRight =
         new Translation3d(LinesVertical.hubCenter, 0, openingHeight);
-
+    public static final double centerYPos =
+        AprilTagLayoutType.OFFICIAL.getLayout().getTagPose(17).get().getY();
     // Relevant reference points on opposing side
     public static final Translation3d oppOpeningTopLeft =
         new Translation3d(LinesVertical.oppHubCenter, openingWidth, openingHeight);
@@ -315,7 +316,8 @@ public class FieldConstants {
 
     // Relevant reference points on alliance side
     public static final Translation2d centerPoint =
-        new Translation2d(0, AprilTagLayoutType.OFFICIAL.getLayout().getTagPose(29).get().getY());
+        new Translation2d(
+            0, AprilTagLayoutType.OFFICIAL.getLayout().getTagPose(29).get().getY() + 0.2);
   }
 
   public enum FieldType {
