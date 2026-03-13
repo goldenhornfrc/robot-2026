@@ -13,6 +13,7 @@ import edu.wpi.first.math.geometry.Rotation3d;
 import edu.wpi.first.math.geometry.Transform3d;
 import edu.wpi.first.math.geometry.Translation3d;
 import edu.wpi.first.math.util.Units;
+import edu.wpi.first.wpilibj.DriverStation; // <--- ADDED IMPORT
 import edu.wpi.first.wpilibj.DriverStation.Alliance;
 import edu.wpi.first.wpilibj.util.Color;
 import edu.wpi.first.wpilibj2.command.Command;
@@ -85,7 +86,6 @@ public class RobotContainer {
   public final Hood hood;
   private final Vision vision;
   public final LEDSubsystem ledSubsystem;
-  // private final Vision vision;
   private final CommandXboxController controller = new CommandXboxController(0);
 
   private static boolean allowAutoAlign = true;
@@ -98,6 +98,11 @@ public class RobotContainer {
 
   public RobotContainer() {
     ledSubsystem = new LEDSubsystem();
+
+    // --- ADDED: LED Default Command ---
+    // Make Falling Blocks the default so it runs whenever nothing else is requiring the LEDs
+    // (e.g., Disabled & Calibrated). ignoringDisable(true) ensures it can run while disabled.
+
     switch (Constants.currentMode) {
       case REAL:
         drive =
@@ -164,13 +169,6 @@ public class RobotContainer {
         turret = new Turret(new TurretIOSim());
         hood = new Hood(new HoodIOSim());
         vision = new Vision(new VisionIO() {});
-        /*
-        new Vision(
-            new VisionIOPhotonVisionSim(
-                "limelight4",
-                VisionConstants.robotToCamera0,
-                () -> RobotState.getInstance().getEstimatedPose()));*/
-
         break;
 
       default:
@@ -231,7 +229,7 @@ public class RobotContainer {
         "IntakeCommand",
         intake
             .runIntakeCommand(() -> 7.7)
-            .alongWith(new SetIntakePivotAngle(intakePivot, 10, true)));
+            .alongWith(new SetIntakePivotAngle(intakePivot, 8.0, true)));
 
     NamedCommands.registerCommand(
         "DeployIntake", new InstantCommand(() -> intakePivot.setPivotAngle(10.0)));
@@ -342,8 +340,8 @@ public class RobotContainer {
         .rightBumper()
         .toggleOnTrue(
             intake
-                .runIntakeCommand(() -> 6.5)
-                .alongWith(new SetIntakePivotAngle(intakePivot, 10, true)));
+                .runIntakeCommand(() -> 7.7)
+                .alongWith(new SetIntakePivotAngle(intakePivot, 8.0, true)));
 
     controller.leftBumper().toggleOnTrue(intake.runIntakeCommand(() -> -6.5));
 
@@ -369,9 +367,7 @@ public class RobotContainer {
         .whileTrue(
             Commands.parallel(
                 spindexer.setSpindexerVoltageCommand(() -> 5),
-                feeder.setFeederVoltageCommand(() -> 10)
-                ));
-
+                feeder.setFeederVoltageCommand(() -> 10)));
 
     Trigger inAllianceZoneTrigger =
         new Trigger(
@@ -385,82 +381,6 @@ public class RobotContainer {
             });
     Trigger allowAutoSwitchTargetTrigger =
         new Trigger(() -> allowAutoSwitchTarget == true && !Robot.isAuto);
-
-    Trigger allowAutoAlignTrigger = new Trigger(() -> allowAutoAlign == true && !Robot.isAuto);
-
-    /*
-
-    DoubleSupplier lowerTargetY =
-        () ->
-            RobotContainer.getAlliance() == Alliance.Red
-                ? FieldConstants.LeftTrench.centerYPos
-                : FieldConstants.RightTrench.centerYPos;
-
-    DoubleSupplier upperTargetY =
-        () ->
-            RobotContainer.getAlliance() == Alliance.Red
-                ? FieldConstants.RightTrench.centerYPos
-                : FieldConstants.LeftTrench.centerYPos;
-
-    Trigger inLowerYRange =
-        new Trigger(
-            () -> {
-              double robotY = RobotState.getInstance().getEstimatedPose().getY();
-              double center = lowerTargetY.getAsDouble();
-              return Math.abs(robotY - center) <= 0.6;
-            });
-
-    Trigger inUpperYRange =
-        new Trigger(
-            () -> {
-              double robotY = RobotState.getInstance().getEstimatedPose().getY();
-              double center = upperTargetY.getAsDouble();
-              return Math.abs(robotY - center) <= 0.6;
-            });
-
-    // 3. Create the Path Prediction Triggers
-    Trigger passesLowerTrench =
-        new Trigger(
-            () ->
-                RobotState.getInstance()
-                    .willPassThroughBounds(AllianceFlipUtil.apply(Zones.BLUE_RIGHT_TRENCH), 0.5));
-
-    Trigger passesUpperTrench =
-        new Trigger(
-            () ->
-                RobotState.getInstance()
-                    .willPassThroughBounds(AllianceFlipUtil.apply(Zones.BLUE_LEFT_TRENCH), 0.5));
-
-    // 4. Combine them into your final Triggers!
-    Trigger shouldAlignLowerTrenchTrigger = passesLowerTrench.and(inLowerYRange);
-    Trigger shouldAlignUpperTrenchTrigger = passesUpperTrench.and(inUpperYRange);
-
-    shouldAlignLowerTrenchTrigger
-        .debounce(0.25, DebounceType.kFalling)
-        .and(allowAutoAlignTrigger)
-        .onTrue(
-            new InstantCommand(
-                () -> {
-                  //Drive.setTargetHeading(
-                  //    getClosestAlignment(RobotState.getInstance().getRotation()));
-                  Drive.setTargetYPos(lowerTargetY.getAsDouble());
-                  Drive.setDriveState(DriveState.TRENCH_ALIGN);
-                }))
-        .onFalse(new InstantCommand(() -> Drive.setDriveState(DriveState.TELEOP_DRIVE)));
-
-    shouldAlignUpperTrenchTrigger
-        .debounce(0.25, DebounceType.kFalling)
-        .and(allowAutoAlignTrigger)
-        .onTrue(
-            new InstantCommand(
-                () -> {
-                  //Drive.setTargetHeading(
-                  //    getClosestAlignment(RobotState.getInstance().getRotation()));
-                  Drive.setTargetYPos(upperTargetY.getAsDouble());
-                  Drive.setDriveState(DriveState.TRENCH_ALIGN);
-                }))
-        .onFalse(new InstantCommand(() -> Drive.setDriveState(DriveState.TELEOP_DRIVE)));
-    */
 
     inAllianceZoneTrigger
         .and(allowAutoSwitchTargetTrigger)
@@ -487,7 +407,51 @@ public class RobotContainer {
                                 .withTimeout(0.3)
                                 .andThen(new WaitCommand(0.1))))
                 .alongWith(IntakeCommands.setIntakeVoltage(6.5, intake)))
-        .onFalse(new SetIntakePivotAngle(intakePivot, 10, true));
+        .onFalse(new SetIntakePivotAngle(intakePivot, 8, true));
+
+    // ==========================================
+    //            LED STATE LOGIC
+    // ==========================================
+
+    Trigger isAuto = new Trigger(DriverStation::isAutonomousEnabled);
+    Trigger isTeleop = new Trigger(DriverStation::isTeleopEnabled);
+    Trigger isDisabled = new Trigger(() -> Robot.isDisabled);
+
+    // We reuse your rightTrigger input as the 'isShooting' intent
+    Trigger isShooting = controller.rightTrigger();
+
+    Trigger isCalibrated = new Trigger(() -> Turret.turretCalibrationDone);
+    Trigger isUncalibrated = isCalibrated.negate();
+
+    // 1. Auto: Rainbow Scroll
+    isAuto.whileTrue(ledSubsystem.rainbowScrollCommand(100));
+
+    // 2. Teleop Enabled & NOT Shooting: Solid Purple
+    isTeleop.and(isShooting.negate()).whileTrue(ledSubsystem.solidColorCommand(Color.kPurple));
+
+    // 3. Teleop Shooting & NOT at Goal: Solid Red
+    isTeleop
+        .and(isShooting)
+        .and(inLaunchingTolerance.negate())
+        .whileTrue(ledSubsystem.solidColorCommand(Color.kRed));
+
+    // 4. Teleop Shooting & AT Goal: Strobe Green
+    isTeleop
+        .and(isShooting)
+        .and(inLaunchingTolerance)
+        .whileTrue(ledSubsystem.strobeCommand(Color.kGreen));
+
+    // 5. Disabled & Uncalibrated: Strobe Red
+    isDisabled
+        .and(isUncalibrated)
+        .whileTrue(ledSubsystem.strobeCommand(Color.kRed).ignoringDisable(true));
+
+    isCalibrated.onTrue(
+        ledSubsystem
+            .strobeCommand(Color.kGreen)
+            .withTimeout(1.8)
+            .ignoringDisable(true)
+            .andThen(ledSubsystem.twoColorScrollCommand(100)));
   }
 
   private Rotation2d getClosestAlignment(Rotation2d currentHeading) {

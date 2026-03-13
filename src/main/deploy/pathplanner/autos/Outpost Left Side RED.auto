@@ -119,9 +119,28 @@
                                   }
                                 },
                                 {
+                                  "type": "deadline",
+                                  "data": {
+                                    "commands": [
+                                      {
+                                        "type": "wait",
+                                        "data": {
+                                          "waitTime": 5.0
+                                        }
+                                      },
+                                      {
+                                        "type": "named",
+                                        "data": {
+                                          "name": "IntakeCommand"
+                                        }
+                                      }
+                                    ]
+                                  }
+                                },
+                                {
                                   "type": "named",
                                   "data": {
-                                    "name": "IntakeCommand"
+                                    "name": "IntakeWiggle"
                                   }
                                 }
                               ]

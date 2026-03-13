@@ -7,17 +7,17 @@ import static edu.wpi.first.units.Units.Seconds;
 import edu.wpi.first.wpilibj.AddressableLED;
 import edu.wpi.first.wpilibj.AddressableLEDBuffer;
 import edu.wpi.first.wpilibj.LEDPattern;
+import edu.wpi.first.wpilibj.LEDPattern.GradientType;
 import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj.util.Color;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
-import java.util.Map;
 
 public class LEDSubsystem extends SubsystemBase {
 
   private static final int kPort = 9;
-  private static final int kTotalLength = 42;
-  private static final int kLogicalLength = 21;
+  private static final int kTotalLength = 44;
+  private static final int kLogicalLength = 22;
 
   private final AddressableLED m_led;
   private final AddressableLEDBuffer m_physicalBuffer;
@@ -34,7 +34,7 @@ public class LEDSubsystem extends SubsystemBase {
     m_led.setLength(kTotalLength);
     m_led.start();
 
-    setDefaultCommand(solidColorCommand(Color.kBlack).withName("LED Off"));
+    // setDefaultCommand(solidColorCommand(Color.kBlack).withName("LED Off"));
   }
 
   @Override
@@ -58,31 +58,34 @@ public class LEDSubsystem extends SubsystemBase {
   }
 
   public Command solidColorCommand(Color color) {
-    LEDPattern solid = LEDPattern.solid(color);
-    return run(() -> setPattern(solid)).withName("Solid Color");
+    LEDPattern solid = LEDPattern.solid(color).atBrightness(Percent.of(60));
+    return run(() -> setPattern(solid)).withName("Solid Color").ignoringDisable(true);
   }
 
   public Command blinkCommand(Color color, double periodSeconds) {
-    LEDPattern blinkPattern = LEDPattern.solid(color).blink(Seconds.of(periodSeconds));
-    return run(() -> setPattern(blinkPattern)).withName("Blink");
+    LEDPattern blinkPattern =
+        LEDPattern.solid(color).blink(Seconds.of(periodSeconds)).atBrightness(Percent.of(60));
+    return run(() -> setPattern(blinkPattern)).withName("Blink").ignoringDisable(true);
   }
 
   public Command strobeCommand(Color color) {
-    return blinkCommand(color, 0.1).withName("Strobe");
+    return blinkCommand(color, 0.1).withName("Strobe").ignoringDisable(true);
   }
 
   public Command rainbowScrollCommand(double speed) {
     LEDPattern rainbowScroll =
-        LEDPattern.rainbow(255, 255).scrollAtRelativeSpeed(Percent.per(Second).of(speed));
-    return run(() -> setPattern(rainbowScroll)).withName("Rainbow Scroll");
+        LEDPattern.gradient(GradientType.kContinuous, Color.kPurple, Color.kDarkBlue)
+            .scrollAtRelativeSpeed(Percent.per(Second).of(speed))
+            .atBrightness(Percent.of(60));
+    return run(() -> setPattern(rainbowScroll)).withName("Rainbow Scroll").ignoringDisable(true);
   }
 
-  public Command twoColorScrollCommand(Color color1, Color color2, double speed) {
-    LEDPattern scrollingSteps =
-        LEDPattern.steps(Map.of(0.0, color1, 0.5, color2))
-            .scrollAtRelativeSpeed(Percent.per(Second).of(speed));
-
-    return run(() -> setPattern(scrollingSteps)).withName("Two Color Scroll");
+  public Command twoColorScrollCommand(double speed) {
+    LEDPattern rainbowScroll =
+        LEDPattern.gradient(GradientType.kContinuous, Color.kGreen, Color.kPurple)
+            .scrollAtRelativeSpeed(Percent.per(Second).of(speed))
+            .atBrightness(Percent.of(60));
+    return run(() -> setPattern(rainbowScroll)).withName("Rainbow Scroll").ignoringDisable(true);
   }
 
   public Command fallingBlocksCommand(Color color, double speedSecondsPerPixel) {
@@ -102,6 +105,7 @@ public class LEDSubsystem extends SubsystemBase {
     public FallingBlocksCommand(Color color, double speedSecondsPerPixel) {
       m_color = color;
       m_speed = speedSecondsPerPixel;
+      addRequirements(LEDSubsystem.this);
     }
 
     @Override
@@ -133,6 +137,7 @@ public class LEDSubsystem extends SubsystemBase {
 
       for (int i = 0; i < kLogicalLength; i++) {
         if (i < m_stackedCount || i == m_fallingPos) {
+
           m_logicalBuffer.setLED(i, m_color);
         } else {
           m_logicalBuffer.setLED(i, Color.kBlack);

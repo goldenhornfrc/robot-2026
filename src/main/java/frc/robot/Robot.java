@@ -11,7 +11,6 @@ import com.ctre.phoenix6.SignalLogger;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
-import edu.wpi.first.wpilibj.util.Color;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.CommandScheduler;
 import frc.robot.subsystems.hood.HoodConstants;
@@ -30,6 +29,7 @@ public class Robot extends LoggedRobot {
   private Command autonomousCommand;
   private RobotContainer robotContainer;
   public static boolean isAuto = false;
+  public static boolean isDisabled = false;
 
   public Robot() {
     Logger.recordMetadata("ProjectName", BuildConstants.MAVEN_NAME);
@@ -63,6 +63,7 @@ public class Robot extends LoggedRobot {
 
     Logger.start();
     robotContainer = new RobotContainer();
+    isDisabled = true;
   }
 
   @Override
@@ -88,8 +89,9 @@ public class Robot extends LoggedRobot {
   @Override
   public void disabledInit() {
     isAuto = false;
-    //CommandScheduler.getInstance()
-     //   .schedule(robotContainer.ledSubsystem.fallingBlocksCommand(Color.kOrange, 0.1));
+    isDisabled = true;
+    // CommandScheduler.getInstance()
+    //   .schedule(robotContainer.ledSubsystem.fallingBlocksCommand(Color.kOrange, 0.1));
   }
 
   @Override
@@ -97,9 +99,11 @@ public class Robot extends LoggedRobot {
 
   @Override
   public void autonomousInit() {
+
     autonomousCommand = robotContainer.getAutonomousCommand();
     robotContainer.hood.resetHoodAngle(HoodConstants.kHoodStartingPos);
     robotContainer.intakePivot.resetPivotAngle(IntakeConstants.intakePivotStartingPos);
+    isDisabled = false;
     isAuto = true;
     CommandScheduler.getInstance().cancelAll();
     if (autonomousCommand != null) {
@@ -113,6 +117,7 @@ public class Robot extends LoggedRobot {
   @Override
   public void teleopInit() {
     isAuto = false;
+    isDisabled = false;
     if (autonomousCommand != null) {
       autonomousCommand.cancel();
     }
