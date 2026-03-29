@@ -14,7 +14,7 @@ import org.littletonrobotics.junction.Logger;
 public class Intake extends SubsystemBase {
   private IntakeIO io;
   private IntakeIOInputsAutoLogged inputs = new IntakeIOInputsAutoLogged();
-
+  private boolean running = false;
   private final Debouncer motorConnectedDebouncer =
       new Debouncer(0.5, Debouncer.DebounceType.kFalling);
 
@@ -46,10 +46,24 @@ public class Intake extends SubsystemBase {
   /** Stop the intake motor. */
   public void stop() {
     io.stop();
+    running = false;
+  }
+
+  public boolean getRunning() {
+    return running;
+  }
+
+  public void setRunning(boolean status) {
+    running = status;
   }
 
   public Command runIntakeCommand(DoubleSupplier voltageSupplier) {
-    return runEnd(() -> setVoltage(voltageSupplier.getAsDouble()), this::stop)
+    return runEnd(
+            () -> {
+              setVoltage(voltageSupplier.getAsDouble());
+              running = true;
+            },
+            this::stop)
         .withName("Intake Command (" + voltageSupplier.getAsDouble() + "V)");
   }
 }

@@ -23,6 +23,8 @@ public class FeederIOTalonFX implements FeederIO {
   private final StatusSignal<Current> supplyCurrent;
   private final StatusSignal<Temperature> tempCelsius;
   private final StatusSignal<AngularVelocity> velocityRPM;
+  private com.ctre.phoenix6.configs.Slot0Configs controllerConfig =
+      new com.ctre.phoenix6.configs.Slot0Configs();
 
   public FeederIOTalonFX() {
     feederMotor = new TalonFX(FeederConstants.FEEDER_MOTOR_ID, Constants.CANIVORE_BUS);
@@ -41,23 +43,27 @@ public class FeederIOTalonFX implements FeederIO {
 
   public void configFeederTalonFX(TalonFX talon) {
 
-    talon.getConfigurator().apply(new TalonFXConfiguration());
-    TalonFXConfiguration config = new TalonFXConfiguration();
+    controllerConfig = new com.ctre.phoenix6.configs.Slot0Configs();
 
-    config.Slot0.kP = 0.0;
-    config.Slot0.kI = 0;
-    config.Slot0.kD = 0;
-    config.Slot0.kV = 0.0;
+    controllerConfig.kP = 2.0;
+    controllerConfig.kI = 0;
+    controllerConfig.kD = 0;
+    controllerConfig.kV = 0.5;
 
-    config.MotorOutput.NeutralMode = NeutralModeValue.Coast;
-    config.MotorOutput.Inverted = InvertedValue.Clockwise_Positive;
+    TalonFXConfiguration baseConfig = new TalonFXConfiguration();
+    baseConfig.Slot0 = controllerConfig;
 
-    config.CurrentLimits.SupplyCurrentLimit = FeederConstants.FEEDER_SUPPLY_CURRENT_LIMIT;
-    config.CurrentLimits.SupplyCurrentLimitEnable = true;
-    config.CurrentLimits.StatorCurrentLimit = FeederConstants.FEEDER_STATOR_CURRENT_LIMIT;
-    config.CurrentLimits.StatorCurrentLimitEnable = true;
+    baseConfig.MotorOutput.NeutralMode = NeutralModeValue.Coast;
+    baseConfig.MotorOutput.Inverted = InvertedValue.CounterClockwise_Positive;
 
-    tryUntilOk(5, () -> talon.getConfigurator().apply(config));
+    baseConfig.Feedback.SensorToMechanismRatio = 4.0;
+
+    baseConfig.CurrentLimits.SupplyCurrentLimit = FeederConstants.FEEDER_SUPPLY_CURRENT_LIMIT;
+    baseConfig.CurrentLimits.SupplyCurrentLimitEnable = true;
+    baseConfig.CurrentLimits.StatorCurrentLimit = FeederConstants.FEEDER_STATOR_CURRENT_LIMIT;
+    baseConfig.CurrentLimits.StatorCurrentLimitEnable = true;
+
+    tryUntilOk(5, () -> talon.getConfigurator().apply(baseConfig));
   }
 
   @Override
@@ -74,7 +80,7 @@ public class FeederIOTalonFX implements FeederIO {
   public void updateInputs(FeederIOInputs inputs) {
     // Refresh all signals and check connection status
     inputs.motorConnected =
-        BaseStatusSignal.refreshAll(appliedVolts, supplyCurrent, tempCelsius).isOK();
+        BaseStatusSignal.refreshAll(appliedVolts, supplyCurrent, tempCelsius, velocityRPM).isOK();
 
     inputs.appliedVolts = appliedVolts.getValueAsDouble();
     inputs.supplyCurrentAmps = supplyCurrent.getValueAsDouble();
@@ -85,5 +91,21 @@ public class FeederIOTalonFX implements FeederIO {
   @Override
   public void runVelocity(double velocityRPM) {
     feederMotor.setControl(new VelocityVoltage(velocityRPM / 60.0).withEnableFOC(true));
+  }
+
+  @Override
+  public void setPID(double kP, double kI, double kD) {
+    controllerConfig.kP = kP;
+    controllerConfig.kI = kI;
+    controllerConfig.kD = kD;
+    tryUntilOk(5, () -> feederMotor.getConfigurator().apply(controllerConfig));
+  }
+
+  @Override
+  public void setFF(double kS, double kV, double kA) {
+    controllerConfig.kS = kS;
+    controllerConfig.kV = kV;
+    controllerConfig.kA = kA;
+    tryUntilOk(5, () -> feederMotor.getConfigurator().apply(controllerConfig));
   }
 }

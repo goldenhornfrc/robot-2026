@@ -105,11 +105,11 @@ public class DefaultDrive extends Command {
     boolean isShooting = Drive.isShooting;
 
     // Target Velocity Multipliers (0.0 to 1.0)
-    double maxLinearVelocityFactor = isShooting ? 0.45 : 1.0;
-    double maxOmegaVelocityFactor = isShooting ? 0.45 : 1.0; // Slow down spins while shooting
+    double maxLinearVelocityFactor = isShooting ? 0.35 : 1.0;
+    double maxOmegaVelocityFactor = isShooting ? 0.35 : 1.0; // Slow down spins while shooting
 
     // Max Acceleration (Units per second. e.g., 3.0 means 0 to 100% in 0.33s)
-    double linearAccelerationLimit = isShooting ? 2.0 : 4.0;
+    double linearAccelerationLimit = isShooting ? 1.5 : 4.0;
     double omegaAccelerationLimit = isShooting ? 2.0 : 2.5;
 
     // Apply the max velocity clamps

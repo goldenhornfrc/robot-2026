@@ -3,6 +3,8 @@
   "robotLength": 0.796,
   "holonomicMode": true,
   "pathFolders": [
+    "Blue Left Side",
+    "Blue Right Side",
     "Red Left Side",
     "Red Right Side"
   ],

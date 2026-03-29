@@ -1,0 +1,79 @@
+{
+  "version": "2025.0",
+  "waypoints": [
+    {
+      "anchor": {
+        "x": 3.84,
+        "y": 0.6100000000000003
+      },
+      "prevControl": null,
+      "nextControl": {
+        "x": 5.126087355236443,
+        "y": 0.722518063887227
+      },
+      "isLocked": false,
+      "linkedName": "TrenchBRShoot"
+    },
+    {
+      "anchor": {
+        "x": 5.914999999999999,
+        "y": 0.9130000000000003
+      },
+      "prevControl": {
+        "x": 5.838676401849381,
+        "y": 0.5203491266209346
+      },
+      "nextControl": {
+        "x": 5.962893057839512,
+        "y": 1.159388423045364
+      },
+      "isLocked": false,
+      "linkedName": null
+    },
+    {
+      "anchor": {
+        "x": 5.773,
+        "y": 3.41
+      },
+      "prevControl": {
+        "x": 5.927098218304479,
+        "y": 3.008560416606203
+      },
+      "nextControl": null,
+      "isLocked": false,
+      "linkedName": "TrenchBRSweep"
+    }
+  ],
+  "rotationTargets": [
+    {
+      "waypointRelativePos": 0.26,
+      "rotationDegrees": 0.0
+    },
+    {
+      "waypointRelativePos": 1.35,
+      "rotationDegrees": 100.0
+    }
+  ],
+  "constraintZones": [],
+  "pointTowardsZones": [],
+  "eventMarkers": [],
+  "globalConstraints": {
+    "maxVelocity": 3.8,
+    "maxAcceleration": 3.0,
+    "maxAngularVelocity": 540.0,
+    "maxAngularAcceleration": 540.0,
+    "nominalVoltage": 12.0,
+    "unlimited": false
+  },
+  "goalEndState": {
+    "velocity": 0,
+    "rotation": 95.0
+  },
+  "reversed": false,
+  "folder": "Blue Right Side",
+  "idealStartingState": {
+    "velocity": 0,
+    "rotation": 0.0
+  },
+  "useDefaultConstraints": true
+}

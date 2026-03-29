@@ -9,7 +9,7 @@ public class HoodConstants {
 
   // Motion magic parameters
   public static final double kHoodStartingPos = 0.0;
-  public static final double kHoodExtendLimit = 25.5;
+  public static final double kHoodExtendLimit = 25.0;
   public static final double kHoodCruiseVel = 20;
   public static final double kHoodAccel = 50;
 

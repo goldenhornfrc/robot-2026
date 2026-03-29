@@ -76,35 +76,41 @@ public class LaunchCalculator {
 
   static {
     minDistance = 1.18;
-    maxDistance = 5.5;
+    maxDistance = 6.0;
     phaseDelay = 0.03;
 
-    hoodAngleMap.put(1.18, 2.0);
-    hoodAngleMap.put(1.7, 7.0);
-    hoodAngleMap.put(2.18, 10.0);
+    hoodAngleMap.put(1.18, 5.0);
+    hoodAngleMap.put(1.7, 9.0);
+    hoodAngleMap.put(2.18, 12.0);
     hoodAngleMap.put(2.7, 14.0);
     hoodAngleMap.put(3.2, 18.5);
     hoodAngleMap.put(3.7, 20.0);
     hoodAngleMap.put(4.2, 21.0);
-    hoodAngleMap.put(4.7, 23.0);
+    hoodAngleMap.put(4.6, 23.0);
+    hoodAngleMap.put(4.7, 25.0);
     hoodAngleMap.put(5.3, 25.0);
+    hoodAngleMap.put(5.7, 25.0);
+    hoodAngleMap.put(6.0, 25.0);
 
-    feedHoodAngleMap.put(12.0, 25.0);
-    feedHoodAngleMap.put(5.2, 25.0);
+    feedHoodAngleMap.put(12.0, 24.0);
+    feedHoodAngleMap.put(5.2, 24.0);
 
     feedFlywheelSpeedMap.put(12.0, 4700.0);
     feedFlywheelSpeedMap.put(7.5, 3900.0);
-    feedFlywheelSpeedMap.put(5.2, 3400.0);
+    feedFlywheelSpeedMap.put(5.2, 3300.0);
 
-    flywheelSpeedMap.put(1.18, 2800.0);
-    flywheelSpeedMap.put(1.7, 2900.0);
-    flywheelSpeedMap.put(2.18, 3000.0);
-    flywheelSpeedMap.put(2.7, 3000.0);
+    flywheelSpeedMap.put(1.18, 2900.0);
+    flywheelSpeedMap.put(1.7, 3000.0);
+    flywheelSpeedMap.put(2.18, 3050.0);
+    flywheelSpeedMap.put(2.7, 3050.0);
     flywheelSpeedMap.put(3.2, 3150.0);
     flywheelSpeedMap.put(3.7, 3300.0);
     flywheelSpeedMap.put(4.2, 3500.0);
-    flywheelSpeedMap.put(4.7, 3600.0);
+    flywheelSpeedMap.put(4.6, 3650.0);
+    flywheelSpeedMap.put(4.7, 3700.0);
     flywheelSpeedMap.put(5.3, 3800.0);
+    flywheelSpeedMap.put(5.7, 3900.0);
+    flywheelSpeedMap.put(6.0, 3950.0);
 
     timeOfFlightMap.put(5.7, 1.25);
     timeOfFlightMap.put(5.3, 1.23);

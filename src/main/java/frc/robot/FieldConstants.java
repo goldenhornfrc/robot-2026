@@ -317,7 +317,7 @@ public class FieldConstants {
     // Relevant reference points on alliance side
     public static final Translation2d centerPoint =
         new Translation2d(
-            0, AprilTagLayoutType.OFFICIAL.getLayout().getTagPose(29).get().getY() + 0.2);
+            0, AprilTagLayoutType.OFFICIAL.getLayout().getTagPose(29).get().getY() + 0.35);
   }
 
   public enum FieldType {

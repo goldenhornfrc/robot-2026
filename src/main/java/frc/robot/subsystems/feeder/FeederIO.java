@@ -18,5 +18,9 @@ public interface FeederIO {
 
   public default void runVelocity(double velocity) {}
 
+  public default void setPID(double kP, double kI, double kD) {}
+
+  public default void setFF(double kS, double kV, double kA) {}
+
   public default void stop() {}
 }

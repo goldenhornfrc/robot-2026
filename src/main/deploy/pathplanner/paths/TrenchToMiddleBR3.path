@@ -1,0 +1,54 @@
+{
+  "version": "2025.0",
+  "waypoints": [
+    {
+      "anchor": {
+        "x": 5.773,
+        "y": 3.41
+      },
+      "prevControl": null,
+      "nextControl": {
+        "x": 6.514006766221781,
+        "y": 0.43798419041662306
+      },
+      "isLocked": false,
+      "linkedName": "TrenchBRSweep"
+    },
+    {
+      "anchor": {
+        "x": 3.84,
+        "y": 0.6100000000000003
+      },
+      "prevControl": {
+        "x": 5.746985942106119,
+        "y": 0.602677663649005
+      },
+      "nextControl": null,
+      "isLocked": false,
+      "linkedName": "TrenchBRShoot"
+    }
+  ],
+  "rotationTargets": [],
+  "constraintZones": [],
+  "pointTowardsZones": [],
+  "eventMarkers": [],
+  "globalConstraints": {
+    "maxVelocity": 3.8,
+    "maxAcceleration": 3.0,
+    "maxAngularVelocity": 540.0,
+    "maxAngularAcceleration": 540.0,
+    "nominalVoltage": 12.0,
+    "unlimited": false
+  },
+  "goalEndState": {
+    "velocity": 0,
+    "rotation": 0.0
+  },
+  "reversed": false,
+  "folder": "Blue Right Side",
+  "idealStartingState": {
+    "velocity": 0,
+    "rotation": 95.0
+  },
+  "useDefaultConstraints": true
+}

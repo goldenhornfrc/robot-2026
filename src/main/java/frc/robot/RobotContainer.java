@@ -21,6 +21,7 @@ import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.InstantCommand;
 import edu.wpi.first.wpilibj2.command.RepeatCommand;
 import edu.wpi.first.wpilibj2.command.WaitCommand;
+import edu.wpi.first.wpilibj2.command.button.CommandPS5Controller;
 import edu.wpi.first.wpilibj2.command.button.CommandXboxController;
 import edu.wpi.first.wpilibj2.command.button.Trigger;
 import frc.robot.RobotState.VisionObservation;
@@ -87,6 +88,7 @@ public class RobotContainer {
   private final Vision vision;
   public final LEDSubsystem ledSubsystem;
   private final CommandXboxController controller = new CommandXboxController(0);
+  private final CommandPS5Controller operator = new CommandPS5Controller(1);
 
   private static boolean allowAutoAlign = true;
   private static boolean allowAutoSwitchTarget = true;
@@ -229,7 +231,7 @@ public class RobotContainer {
         "IntakeCommand",
         intake
             .runIntakeCommand(() -> 7.7)
-            .alongWith(new SetIntakePivotAngle(intakePivot, 8.0, true)));
+            .alongWith(new SetIntakePivotAngle(intakePivot, 2.0, true)));
 
     NamedCommands.registerCommand(
         "DeployIntake", new InstantCommand(() -> intakePivot.setPivotAngle(10.0)));
@@ -270,7 +272,7 @@ public class RobotContainer {
               if (LaunchCalculator.getInstance().getParameters().isValid()
                   && atGoalDebouncer.calculate(hood.atGoal() && shooter.atGoal() && turret.atGoal())
                   && !Turret.wrappingAngle) {
-                feeder.setVoltage(10);
+                feeder.runVelocity(1000);
                 spindexer.setVoltage(5);
               } else {
                 feeder.stop();
@@ -340,8 +342,8 @@ public class RobotContainer {
         .rightBumper()
         .toggleOnTrue(
             intake
-                .runIntakeCommand(() -> 7.7)
-                .alongWith(new SetIntakePivotAngle(intakePivot, 8.0, true)));
+                .runIntakeCommand(() -> 6.5)
+                .alongWith(new SetIntakePivotAngle(intakePivot, 2.0, true)));
 
     controller.leftBumper().toggleOnTrue(intake.runIntakeCommand(() -> -6.5));
 
@@ -361,13 +363,19 @@ public class RobotContainer {
                 turret,
                 () -> LaunchCalculator.getInstance().getParameters().turretAngle().getDegrees(),
                 () -> LaunchCalculator.getInstance().getParameters().turretVelocity()))
+        .whileTrue(
+            Commands.run(
+                () -> {
+                  intake.setVoltage(6.5);
+                  intake.setRunning(true);
+                }))
         .and(() -> LaunchCalculator.getInstance().getParameters().isValid())
         .and(() -> !Turret.wrappingAngle)
         .and(inLaunchingTolerance.debounce(0.25, DebounceType.kFalling))
         .whileTrue(
             Commands.parallel(
-                spindexer.setSpindexerVoltageCommand(() -> 5),
-                feeder.setFeederVoltageCommand(() -> 10)));
+                feeder.runFeederVelocityCommand(() -> 1200.0),
+                spindexer.setSpindexerVoltageCommand(() -> 5.0)));
 
     Trigger inAllianceZoneTrigger =
         new Trigger(
@@ -407,7 +415,47 @@ public class RobotContainer {
                                 .withTimeout(0.3)
                                 .andThen(new WaitCommand(0.1))))
                 .alongWith(IntakeCommands.setIntakeVoltage(6.5, intake)))
-        .onFalse(new SetIntakePivotAngle(intakePivot, 8, true));
+        .onFalse(new SetIntakePivotAngle(intakePivot, 2.0, true));
+
+    operator
+        .cross()
+        .onTrue(
+            new InstantCommand(
+                () -> {
+                  if (RobotContainer.getAlliance() == Alliance.Red) {
+                    RobotState.getInstance()
+                        .resetPose(new Pose2d(0, 0, Rotation2d.fromDegrees(180.0)));
+                  } else {
+                    RobotState.getInstance().resetPose(new Pose2d());
+                  }
+                }));
+
+    operator.triangle().onTrue(new SetIntakePivotAngle(intakePivot, 65.0, true));
+    operator.R1().whileTrue(feeder.setFeederVoltageCommand(() -> -10));
+
+    // 3170 rpm 18.8 deg tower preset
+
+    operator
+        .L1()
+        .whileTrue(shooter.shooterRPMTuningCommand(() -> 3170.0))
+        .whileTrue(hood.hoodPositionTuningCommand(() -> 18.8))
+        .whileTrue(new TrackTarget(turret, () -> 0.0, () -> 0.0))
+        .and(inLaunchingTolerance.debounce(0.25, DebounceType.kFalling))
+        .whileTrue(
+            Commands.parallel(
+                spindexer.setSpindexerVoltageCommand(() -> 5),
+                feeder.setFeederVoltageCommandNew(() -> 10.0, () -> 4.0)));
+    // 2800 rpm 2 deg yapisik atma
+    operator
+        .L2()
+        .whileTrue(shooter.shooterRPMTuningCommand(() -> 2800.0))
+        .whileTrue(hood.hoodPositionTuningCommand(() -> 4.0))
+        .whileTrue(new TrackTarget(turret, () -> 0.0, () -> 0.0))
+        .and(inLaunchingTolerance.debounce(0.25, DebounceType.kFalling))
+        .whileTrue(
+            Commands.parallel(
+                spindexer.setSpindexerVoltageCommand(() -> 5),
+                feeder.setFeederVoltageCommandNew(() -> 10.0, () -> 4.0)));
 
     // ==========================================
     //            LED STATE LOGIC
@@ -419,16 +467,23 @@ public class RobotContainer {
 
     // We reuse your rightTrigger input as the 'isShooting' intent
     Trigger isShooting = controller.rightTrigger();
+    Trigger isIntaking = new Trigger(intake::getRunning);
 
     Trigger isCalibrated = new Trigger(() -> Turret.turretCalibrationDone);
     Trigger isUncalibrated = isCalibrated.negate();
 
     // 1. Auto: Rainbow Scroll
-    isAuto.whileTrue(ledSubsystem.rainbowScrollCommand(100));
+    isAuto.whileTrue(ledSubsystem.rainbowScrollCommand(150));
 
     // 2. Teleop Enabled & NOT Shooting: Solid Purple
-    isTeleop.and(isShooting.negate()).whileTrue(ledSubsystem.solidColorCommand(Color.kPurple));
+    isTeleop
+        .and(isShooting.negate().and(isIntaking.negate()))
+        .whileTrue(ledSubsystem.solidColorCommand(Color.kPurple));
 
+    isTeleop
+        .and(isShooting.negate())
+        .and(isIntaking)
+        .whileTrue(ledSubsystem.strobeCommand(Color.kBlue));
     // 3. Teleop Shooting & NOT at Goal: Solid Red
     isTeleop
         .and(isShooting)
