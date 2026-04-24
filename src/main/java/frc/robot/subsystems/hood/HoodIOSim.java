@@ -18,25 +18,20 @@ public class HoodIOSim implements HoodIO {
   private static final DCMotor GEARBOX = DCMotor.getKrakenX44(1);
 
   // Tunable guessed inertia for the hood mechanism
-  private static final double MECHANISM_INERTIA = 0.004754;
+  private static final double MECHANISM_INERTIA = 0.005054;
 
   private final DCMotorSim hoodSim;
 
   // Phoenix 6 expects PID error in Rotations
-  private final PIDController positionController = new PIDController(400.0, 0.0, 6.0);
+  private final PIDController positionController = new PIDController(0.4, 0.0, 0.0);
   private boolean closedLoop = false;
 
   // Setpoint mapped to Rotations for TalonFX parity
   private double positionSetpointRotations = 0.0;
   private double appliedVolts = 0.0;
 
-  private double kS = 0.0;
-  private double kV = 0.0;
-  private double kA = 0.0;
-
   // Encoder reset offset
   private double angleOffsetRad = 0.0;
-  private double lastVelocityRps = 0.0; // Track RPS instead of Rad/s
 
   public HoodIOSim() {
     hoodSim =
@@ -55,17 +50,17 @@ public class HoodIOSim implements HoodIO {
 
     // 2. Convert to TalonFX units (Rotations)
     double currentRot = currentRad / (2.0 * Math.PI);
-    double currentRps = simVelRadPerSec / (2.0 * Math.PI);
 
-    // 3. Calculate acceleration in RPS^2
-    double accelRps2 = (currentRps - lastVelocityRps) / 0.02;
-
-    // 4. Calculate control loops using Rotations
+    // 3. Calculate control loops using Rotations
     if (closedLoop) {
-      double ff = kS * Math.signum(currentRps) + kV * currentRps + kA * accelRps2;
-      appliedVolts = positionController.calculate(currentRot, positionSetpointRotations) + ff;
+      // Calculating feedforward with actual velocity instead of target velocity causes positive
+      // feedback.
+      // Since this sim simple-position control doesn't track a profile, we ignore kV/kA to prevent
+      // violent oscillation.
+      appliedVolts = positionController.calculate(currentRot, positionSetpointRotations);
     }
 
+    // Allow full 12V range for typical FRC motors
     hoodSim.setInputVoltage(MathUtil.clamp(appliedVolts, -12.0, 12.0));
     hoodSim.update(0.02);
 
@@ -75,8 +70,6 @@ public class HoodIOSim implements HoodIO {
     inputs.appliedVolts = appliedVolts;
     inputs.supplyCurrentAmps = Math.abs(hoodSim.getCurrentDrawAmps());
     inputs.tempCelsius = 25.0;
-
-    lastVelocityRps = currentRps;
   }
 
   @Override
@@ -111,12 +104,5 @@ public class HoodIOSim implements HoodIO {
     positionController.setP(kP);
     positionController.setI(kI);
     positionController.setD(kD);
-  }
-
-  @Override
-  public void setFF(double kS, double kV, double kA) {
-    this.kS = kS;
-    this.kV = kV;
-    this.kA = kA;
   }
 }

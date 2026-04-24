@@ -17,6 +17,7 @@ import frc.robot.subsystems.hood.HoodConstants;
 import frc.robot.subsystems.intake.IntakeConstants;
 import frc.robot.subsystems.shooter.LaunchCalculator;
 import frc.robot.subsystems.turret.Turret;
+import frc.robot.util.FuelPhysicsSim;
 import org.littletonrobotics.junction.AutoLogOutputManager;
 import org.littletonrobotics.junction.LogFileUtil;
 import org.littletonrobotics.junction.LoggedRobot;
@@ -30,6 +31,8 @@ public class Robot extends LoggedRobot {
   private RobotContainer robotContainer;
   public static boolean isAuto = false;
   public static boolean isDisabled = false;
+
+  public static FuelPhysicsSim ballSim;
 
   public Robot() {
     Logger.recordMetadata("ProjectName", BuildConstants.MAVEN_NAME);
@@ -151,8 +154,69 @@ public class Robot extends LoggedRobot {
                 FieldConstants.Hub.oppTopCenterPoint.toTranslation2d(),
                 Rotation2d.fromDegrees(180)));
     Turret.turretCalibrationDone = true;
+
+    ballSim = new FuelPhysicsSim("Sim/Fuel");
+    ballSim.enable();
+    ballSim.placeFieldBalls();
+
+    // ballSim.placeFieldBalls(); // spawns all the game pieces
+
+    // tell it about your robot - replace placeholders with actual bot dimensions
+    double robotWidth = 0.6340; // TODO: Replace
+    double robotLength = 0.762; // TODO: Replace
+    double bumperHeight = 0.1; // TODO: Replace
+
+    ballSim.configureRobot(
+        robotWidth,
+        robotLength,
+        bumperHeight,
+        () -> RobotState.getInstance().getEstimatedPose(),
+        () -> RobotState.getInstance().getRobotVelocity());
+
+    // Configure the intake zone (in robot-relative coordinates, where +X is forward)
+    double intakeXMin = robotLength / 2.0; // Starting immediately in front of the bumper
+    double intakeXMax =
+        intakeXMin + 0.3; // Extending 0.3 meters forward // TODO: Replace with actual intake depth
+    double intakeYMin = -(robotWidth - 0.15) / 2.0; // Full width of the robot
+    double intakeYMax = (robotWidth - 0.15) / 2.0;
+
+    ballSim.addIntakeZone(
+        intakeXMin,
+        intakeXMax,
+        intakeYMin,
+        intakeYMax,
+        () ->
+            robotContainer.intake
+                .getRunning(), // Only ingest balls when the intake wheels are running
+        () -> {
+          // Optional: Action to perform when a ball is successfully intaked.
+          // e.g., triggering a rumble, stopping the intake sequence, or logging.
+          // Logger.recordOutput("Sim/IntakeEvent", true);
+        });
   }
 
   @Override
-  public void simulationPeriodic() {}
+  public void simulationPeriodic() {
+    if (ballSim != null) {
+      ballSim.tick();
+      // var launchCalculator = LaunchCalculator.getInstance();
+
+      // Basic example of shooting logic check. You should hook this up to your actual shooting
+      // trigger (e.g. from RobotContainer or when the feeder motor runs).
+      // For example, if feeder is running AND desiredAction == SHOOT:
+      // if (feederIsRunning && launchCalculator.desiredAction ==
+      // LaunchCalculator.DesiredAction.SHOOT) {
+      //   var params = launchCalculator.getParameters();
+      //
+      //   Translation3d launcherPosition = new Translation3d(); // TODO: Replace with actual
+      // launcher Translation3d in field relative
+      //   Translation3d launchVelocity = new Translation3d(); // TODO: Replace with actual launch
+      // velocity Translation3d in field relative
+      //   double spinRPM = params.flywheelSpeed() * 0.5; // TODO: Replace with actual spin
+      // calculation
+      //
+      //   ballSim.launchBall(launcherPosition, launchVelocity, spinRPM);
+      // }
+    }
+  }
 }

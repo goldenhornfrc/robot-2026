@@ -111,6 +111,11 @@ public class Turret extends SubsystemBase {
     return Math.abs(getTurretAngle() - targetAngle) <= 1.5;
   }
 
+  @AutoLogOutput(key = "Turret/WrappingAngle")
+  public boolean getWrappingAngle() {
+    return wrappingAngle;
+  }
+
   /** Sets the turret PID gains (kP, kI, kD) */
   public void setPID(double kP, double kI, double kD) {
     io.setPID(kP, kI, kD);

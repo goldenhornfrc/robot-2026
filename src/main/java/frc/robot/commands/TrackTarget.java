@@ -3,6 +3,7 @@ package frc.robot.commands;
 import edu.wpi.first.math.MathUtil;
 import edu.wpi.first.math.controller.SimpleMotorFeedforward;
 import edu.wpi.first.wpilibj2.command.Command;
+import frc.robot.Robot;
 import frc.robot.subsystems.drive.Drive;
 import frc.robot.subsystems.turret.Turret;
 import frc.robot.subsystems.turret.TurretConstants;
@@ -34,6 +35,13 @@ public class TrackTarget extends Command {
     this.robotRelativeAngleDegSupplier = robotRelativeAngleDegSupplier;
     this.turretVelocityRadPerSecSupplier = turretVelocityRadPerSecSupplier;
     addRequirements(turret);
+  }
+
+  @Override
+  public void initialize() {
+    if (Robot.isSimulation()) {
+      feedforward.setKv(0.024);
+    }
   }
 
   @Override

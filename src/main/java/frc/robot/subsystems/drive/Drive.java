@@ -19,6 +19,7 @@ import com.pathplanner.lib.util.PathPlannerLogging;
 import edu.wpi.first.hal.FRCNetComm.tInstances;
 import edu.wpi.first.hal.FRCNetComm.tResourceType;
 import edu.wpi.first.hal.HAL;
+import edu.wpi.first.math.controller.PIDController;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Translation2d;
@@ -37,6 +38,7 @@ import frc.robot.Constants;
 import frc.robot.Constants.Mode;
 import frc.robot.RobotState;
 import frc.robot.generated.TunerConstants;
+import frc.robot.lib.BLine.*;
 import frc.robot.util.LocalADStarAK;
 import java.util.Optional;
 import java.util.concurrent.locks.Lock;
@@ -78,6 +80,11 @@ public class Drive extends SubsystemBase {
 
   private SwerveDriveKinematics kinematics = new SwerveDriveKinematics(getModuleTranslations());
   public static boolean isShooting = false;
+
+  private Rotation2d gyroOffset = Rotation2d.kZero;
+  private boolean gyroWasConnected = true;
+
+  public final FollowPath.Builder pathBuilder;
 
   private static final double ROBOT_MASS_KG = 65.0;
   private static final double ROBOT_MOI = 5.850;
@@ -136,6 +143,20 @@ public class Drive extends SubsystemBase {
           Logger.recordOutput("Odometry/TrajectorySetpoint", targetPose);
         });
 
+    // Create a reusable builder with your robot's configuration
+    pathBuilder =
+        new FollowPath.Builder(
+                this, // The drive subsystem to require
+                RobotState.getInstance()::getEstimatedPose, // Supplier for current robot pose
+                this::getChassisSpeeds, // Supplier for current speeds
+                this::runVelocity, // Consumer to drive the robot
+                new PIDController(0.65, 0.0, 0.0), // Translation PID
+                new PIDController(3.0, 0.0, 0.0), // Rotation PID
+                new PIDController(2.0, 0.0, 0.0) // Cross-track PID
+                )
+            .withShouldFlip(() -> false)
+            .withPoseReset(RobotState.getInstance()::resetPose); // Reset odometry at path start
+
     // Configure SysId
     sysId =
         new SysIdRoutine(
@@ -175,6 +196,9 @@ public class Drive extends SubsystemBase {
     double[] sampleTimestamps =
         modules[0].getOdometryTimestamps(); // All signals are sampled together
     int sampleCount = sampleTimestamps.length;
+
+    boolean isReconnecting = (gyroInputs.connected && !gyroWasConnected);
+
     for (int i = 0; i < sampleCount; i++) {
       // Read wheel positions and deltas from each module
       SwerveModulePosition[] modulePositions = new SwerveModulePosition[4];
@@ -182,16 +206,42 @@ public class Drive extends SubsystemBase {
         modulePositions[moduleIndex] = modules[moduleIndex].getOdometryPositions()[i];
       }
 
-      RobotState.getInstance()
-          .addOdometryObservation(
-              new RobotState.OdometryObservation(
-                  modulePositions,
-                  Optional.ofNullable(
-                      gyroInputs.connected ? gyroInputs.odometryYawPositions[i] : null),
-                  sampleTimestamps[i]));
+      Rotation2d correctedYaw = null;
+
+      if (isReconnecting && i == 0) {
+        // First sample of reconnection: use wheel kinematics to bridge the gap seamlessly!
+        // We pass null so RobotState computes the twist from lastWheelPositions.
+        RobotState.getInstance()
+            .addOdometryObservation(
+                new RobotState.OdometryObservation(
+                    modulePositions, Optional.empty(), sampleTimestamps[i]));
+
+        // NOW RobotState's raw gyro rotation is completely up-to-date with this exact frame's time!
+        // We can now calculate the precise offset between the new gyro stream and our continuous
+        // rotation.
+        if (gyroInputs.odometryYawPositions.length > 0) {
+          gyroOffset =
+              RobotState.getInstance()
+                  .getRawGyroRotation()
+                  .minus(gyroInputs.odometryYawPositions[0]);
+        } else {
+          gyroOffset = RobotState.getInstance().getRawGyroRotation().minus(gyroInputs.yawPosition);
+        }
+        isReconnecting = false;
+      } else {
+        if (gyroInputs.connected && i < gyroInputs.odometryYawPositions.length) {
+          correctedYaw = gyroInputs.odometryYawPositions[i].plus(gyroOffset);
+        }
+        RobotState.getInstance()
+            .addOdometryObservation(
+                new RobotState.OdometryObservation(
+                    modulePositions, Optional.ofNullable(correctedYaw), sampleTimestamps[i]));
+      }
 
       RobotState.getInstance().addDriveSpeeds(getChassisSpeeds(), gyroInputs.yawVelocityRadPerSec);
     }
+
+    gyroWasConnected = gyroInputs.connected;
 
     // Update gyro alert
     gyroDisconnectedAlert.set(!gyroInputs.connected && Constants.currentMode != Mode.SIM);

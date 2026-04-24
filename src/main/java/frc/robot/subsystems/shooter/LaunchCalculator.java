@@ -33,6 +33,8 @@ public class LaunchCalculator {
   private double turretVelocity;
   private double hoodVelocity;
 
+  private static final double DRAG_ACCEL_FACTOR = 0.0236928201;
+
   public enum DesiredAction {
     SHOOT,
     FEED
@@ -96,8 +98,9 @@ public class LaunchCalculator {
     feedHoodAngleMap.put(5.2, 24.0);
 
     feedFlywheelSpeedMap.put(12.0, 4700.0);
-    feedFlywheelSpeedMap.put(7.5, 3900.0);
-    feedFlywheelSpeedMap.put(5.2, 3300.0);
+    feedFlywheelSpeedMap.put(7.5, 3500.0);
+    feedFlywheelSpeedMap.put(5.2, 2500.0);
+    feedFlywheelSpeedMap.put(0.0, 1000.0);
 
     flywheelSpeedMap.put(1.18, 2900.0);
     flywheelSpeedMap.put(1.7, 3000.0);
@@ -249,6 +252,8 @@ public class LaunchCalculator {
         desiredAction == DesiredAction.SHOOT
             ? hoodAngleMap.get(lookaheadDistance)
             : feedHoodAngleMap.get(lookaheadDistance);
+
+    hoodAngle += hoodAngleOffsetDeg;
 
     if (lastTurretAngle == null) lastTurretAngle = turretTargetAngle;
     if (Double.isNaN(lastHoodAngle)) lastHoodAngle = hoodAngle;

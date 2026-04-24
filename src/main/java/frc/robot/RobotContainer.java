@@ -11,6 +11,7 @@ import edu.wpi.first.math.geometry.Pose3d;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Rotation3d;
 import edu.wpi.first.math.geometry.Transform3d;
+import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.math.geometry.Translation3d;
 import edu.wpi.first.math.util.Units;
 import edu.wpi.first.wpilibj.DriverStation; // <--- ADDED IMPORT
@@ -25,7 +26,7 @@ import edu.wpi.first.wpilibj2.command.button.CommandPS5Controller;
 import edu.wpi.first.wpilibj2.command.button.CommandXboxController;
 import edu.wpi.first.wpilibj2.command.button.Trigger;
 import frc.robot.RobotState.VisionObservation;
-import frc.robot.commands.DriveCommands;
+import frc.robot.commands.BLineAutos;
 import frc.robot.commands.TrackTarget;
 import frc.robot.commands.drive.DefaultDrive;
 import frc.robot.commands.intake.IntakeCommands;
@@ -72,6 +73,7 @@ import frc.robot.subsystems.vision.VisionConstants;
 import frc.robot.subsystems.vision.VisionIO;
 import frc.robot.subsystems.vision.VisionIOLimelight;
 import frc.robot.util.AllianceFlipUtil;
+import frc.robot.util.GeomUtil;
 import org.littletonrobotics.junction.Logger;
 import org.littletonrobotics.junction.networktables.LoggedDashboardChooser;
 
@@ -79,7 +81,7 @@ import org.littletonrobotics.junction.networktables.LoggedDashboardChooser;
 public class RobotContainer {
   private final Drive drive;
   public final IntakePivot intakePivot;
-  private final Intake intake;
+  public final Intake intake;
   private final Shooter shooter;
   private final Spindexer spindexer;
   private final Feeder feeder;
@@ -97,6 +99,8 @@ public class RobotContainer {
   public final LoggedDashboardChooser<Alliance> m_allianceChooser;
 
   private final LoggedDashboardChooser<Command> autoChooser;
+
+  private BLineAutos bLineAutos;
 
   public RobotContainer() {
     ledSubsystem = new LEDSubsystem();
@@ -194,6 +198,10 @@ public class RobotContainer {
         break;
     }
 
+    bLineAutos =
+        new BLineAutos(
+            drive.pathBuilder, turret, hood, shooter, intake, intakePivot, feeder, spindexer);
+
     NamedCommands.registerCommand(
         "TrackTarget",
         new TrackTarget(
@@ -274,6 +282,7 @@ public class RobotContainer {
                   && !Turret.wrappingAngle) {
                 feeder.runVelocity(1000);
                 spindexer.setVoltage(5);
+                simBallShoot();
               } else {
                 feeder.stop();
                 spindexer.stop();
@@ -288,10 +297,7 @@ public class RobotContainer {
 
     autoChooser = new LoggedDashboardChooser<>("Auto Choices", AutoBuilder.buildAutoChooser());
 
-    autoChooser.addOption(
-        "Drive Wheel Radius Characterization", DriveCommands.wheelRadiusCharacterization(drive));
-    autoChooser.addOption(
-        "Drive Simple FF Characterization", DriveCommands.feedforwardCharacterization(drive));
+    //autoChooser.addOption("BLine Test Auto", bLineAutos.testAuto());
     autoChooser.addDefaultOption(
         "Reset Sensors",
         new InstantCommand(() -> RobotState.getInstance().resetPose(new Pose2d())));
@@ -375,7 +381,8 @@ public class RobotContainer {
         .whileTrue(
             Commands.parallel(
                 feeder.runFeederVelocityCommand(() -> 1200.0),
-                spindexer.setSpindexerVoltageCommand(() -> 5.0)));
+                spindexer.setSpindexerVoltageCommand(() -> 5.0),
+                simBallCommand()));
 
     Trigger inAllianceZoneTrigger =
         new Trigger(
@@ -511,6 +518,53 @@ public class RobotContainer {
 
   private Rotation2d getClosestAlignment(Rotation2d currentHeading) {
     return currentHeading.getCos() >= 0.0 ? Rotation2d.kZero : Rotation2d.fromDegrees(180.0);
+  }
+
+  private void simBallShoot() {
+    if (Robot.isSimulation() && Robot.ballSim != null && Math.random() < 0.12) {
+      var params = LaunchCalculator.getInstance().getParameters();
+      if (params.isValid()) {
+        Pose2d robotPose = RobotState.getInstance().getEstimatedPose();
+        Rotation2d launchHeading =
+            robotPose.getRotation().plus(Rotation2d.fromDegrees(turret.getTurretAngle()));
+
+        Translation2d launchTurretPose =
+            robotPose
+                .transformBy(GeomUtil.toTransform2d(VisionConstants.ROBOT_TO_TURRET))
+                .getTranslation();
+
+        Translation3d launcherPosition =
+            new Translation3d(
+                launchTurretPose.getX(),
+                launchTurretPose.getY(),
+                0.49); // TODO: Replace with actual launch position
+
+        double rpm = params.flywheelSpeed();
+        double speed =
+            (rpm / 60.0) * 2 * Math.PI * 0.0508 * 0.43; // TODO: Calibrate conversion to m/s
+        double hoodAngleDeg = 80.0 - hood.getHoodAngle();
+        var robotVel = RobotState.getInstance().getFieldVelocity();
+        double vx =
+            launchHeading.getCos() * speed * Math.cos(Math.toRadians(hoodAngleDeg))
+                + robotVel.vxMetersPerSecond;
+        double vy =
+            launchHeading.getSin() * speed * Math.cos(Math.toRadians(hoodAngleDeg))
+                + robotVel.vyMetersPerSecond;
+        double vz = speed * Math.sin(Math.toRadians(hoodAngleDeg));
+        Translation3d launchVelocity = new Translation3d(vx, vy, vz);
+
+        double spinRPM = rpm * 0.5; // TODO: Tune spin transfer
+
+        Robot.ballSim.launchBall(launcherPosition, launchVelocity, spinRPM);
+      }
+    }
+  }
+
+  private Command simBallCommand() {
+    return Commands.run(
+        () -> {
+          simBallShoot();
+        });
   }
 
   public Command getAutonomousCommand() {

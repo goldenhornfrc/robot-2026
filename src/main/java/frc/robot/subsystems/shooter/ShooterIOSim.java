@@ -10,7 +10,7 @@ public class ShooterIOSim implements ShooterIO {
   // 2 Kraken X44 motors driving the shared flywheel
   private static final DCMotor GEARBOX = DCMotor.getKrakenX44Foc(2);
 
-  private static final double MECHANISM_INERTIA = 0.00696603125;
+  private static final double MECHANISM_INERTIA = 0.00106603125;
   // 18/15 sensor-to-mechanism ratio
   private static final double GEAR_RATIO = 18.0 / 15.0;
 
@@ -25,17 +25,21 @@ public class ShooterIOSim implements ShooterIO {
 
   // Default FF gains from TalonFX IO
   private double kS = 0.0;
-  private double kV = 0.115;
+  // kV is ignored for sim
   private double kA = 0.0;
+
+  private double simKv = 0.0;
 
   private double lastTargetRps = 0.0;
 
   public ShooterIOSim() {
-    shooterSim =
-        new FlywheelSim(
-            LinearSystemId.createFlywheelSystem(GEARBOX, MECHANISM_INERTIA, GEAR_RATIO),
-            GEARBOX,
-            0.0); // Assuming negligible measurement noise
+    var plant = LinearSystemId.createFlywheelSystem(GEARBOX, MECHANISM_INERTIA, GEAR_RATIO);
+    shooterSim = new FlywheelSim(plant, GEARBOX, 0.0); // Assuming negligible measurement noise
+
+    // Calculate the exact kV for the simulated motor plant to eliminate steady-state error
+    // plant: dx/dt = Ax + Bu. At steady state, dx/dt = 0 -> u = (-A/B) * x
+    // x is rad/s, targetRps is rotations/s. So we multiply by 2*PI to get Volts per RPS.
+    simKv = -plant.getA(0, 0) / plant.getB(0, 0) * 2.0 * Math.PI;
   }
 
   @Override
@@ -50,8 +54,9 @@ public class ShooterIOSim implements ShooterIO {
       // Calculate target acceleration for kA feedforward (RPS/s)
       double targetAccelRps2 = (targetRps - lastTargetRps) / 0.02;
 
-      // Phoenix 6's VelocityVoltage mode calculates feedforward based on the *target* velocity
-      double ff = kS * Math.signum(targetRps) + kV * targetRps + kA * targetAccelRps2;
+      // Use the mathematically exact simulation kV instead of the tuned physical kV
+      // to eliminate steady-state error driven by mismatch in simulated vs real plant.
+      double ff = kS * Math.signum(targetRps) + simKv * targetRps + kA * targetAccelRps2;
 
       // Calculate PID error using RPS
       double pidVolts = velocityController.calculate(currentRps, targetRps);
@@ -120,7 +125,9 @@ public class ShooterIOSim implements ShooterIO {
   @Override
   public void setFF(double kS, double kV, double kA) {
     this.kS = kS;
-    this.kV = kV;
+    // We strictly ignore the user-provided physical kV because the `LinearSystemId`
+    // physics model has its own perfect theoretical simulated kV!
+    // this.kV = kV;
     this.kA = kA;
   }
 }

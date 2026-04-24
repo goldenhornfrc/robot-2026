@@ -45,7 +45,11 @@ public class GyroIOPigeon2 implements GyroIO {
 
   @Override
   public void updateInputs(GyroIOInputs inputs) {
+    boolean wasConnected = inputs.connected;
     inputs.connected = BaseStatusSignal.refreshAll(yaw, yawVelocity).equals(StatusCode.OK);
+    if (!wasConnected && inputs.connected) {
+      inputs.disconnectedTime = Double.POSITIVE_INFINITY; // Handled in Drive.java
+    }
     inputs.yawPosition = Rotation2d.fromDegrees(yaw.getValueAsDouble());
     inputs.yawVelocityRadPerSec = Units.degreesToRadians(yawVelocity.getValueAsDouble());
 

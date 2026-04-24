@@ -108,6 +108,11 @@ public class RobotState {
     return estimatedPose.getRotation();
   }
 
+  /** Gets the continuous, un-reset raw heading tracked mainly for internal odometry. */
+  public Rotation2d getRawGyroRotation() {
+    return lastGyroRotation;
+  }
+
   @AutoLogOutput(key = "RobotState/FieldVelocity")
   public ChassisSpeeds getFieldVelocity() {
     return ChassisSpeeds.fromRobotRelativeSpeeds(robotVelocity, getRotation());
