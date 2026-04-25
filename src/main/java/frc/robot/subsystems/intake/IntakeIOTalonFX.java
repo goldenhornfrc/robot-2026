@@ -17,11 +17,15 @@ import frc.robot.Constants;
 
 public class IntakeIOTalonFX implements IntakeIO {
   private final TalonFX motor;
+  private final TalonFX motor2;
 
   // Status Signals
   private final StatusSignal<Voltage> appliedVolts;
+  private final StatusSignal<Voltage> appliedVolts2;
   private final StatusSignal<Current> supplyCurrent;
+  private final StatusSignal<Current> supplyCurrent2;
   private final StatusSignal<Temperature> tempCelsius;
+  private final StatusSignal<Temperature> tempCelsius2;
 
   // Control objects
   private final VoltageOut voltageControl = new VoltageOut(0).withUpdateFreqHz(0.0);
@@ -29,6 +33,7 @@ public class IntakeIOTalonFX implements IntakeIO {
 
   public IntakeIOTalonFX() {
     motor = new TalonFX(IntakeConstants.INTAKE_MOTOR_ID, Constants.CANIVORE_BUS);
+    motor2 = new TalonFX(IntakeConstants.INTAKE_MOTOR2_ID, Constants.CANIVORE_BUS);
 
     // Configure motor
     TalonFXConfiguration config = new TalonFXConfiguration();
@@ -46,13 +51,24 @@ public class IntakeIOTalonFX implements IntakeIO {
 
     // Apply configuration
     tryUntilOk(5, () -> motor.getConfigurator().apply(config));
+    config.MotorOutput.Inverted = InvertedValue.Clockwise_Positive; // Invert second motor
+    tryUntilOk(5, () -> motor2.getConfigurator().apply(config));
 
     appliedVolts = motor.getMotorVoltage();
     supplyCurrent = motor.getSupplyCurrent();
     tempCelsius = motor.getDeviceTemp();
-
+    appliedVolts2 = motor2.getMotorVoltage();
+    supplyCurrent2 = motor2.getSupplyCurrent();
+    tempCelsius2 = motor2.getDeviceTemp();
     // Set update frequency for all signals (100 Hz)
-    BaseStatusSignal.setUpdateFrequencyForAll(25.0, appliedVolts, supplyCurrent, tempCelsius);
+    BaseStatusSignal.setUpdateFrequencyForAll(
+        25.0,
+        appliedVolts,
+        supplyCurrent,
+        tempCelsius,
+        appliedVolts2,
+        supplyCurrent2,
+        tempCelsius2);
   }
 
   @Override
@@ -60,19 +76,25 @@ public class IntakeIOTalonFX implements IntakeIO {
     // Refresh all signals and check connection status
     inputs.motorConnected =
         BaseStatusSignal.refreshAll(appliedVolts, supplyCurrent, tempCelsius).isOK();
-
+    inputs.motor2Connected =
+        BaseStatusSignal.refreshAll(appliedVolts2, supplyCurrent2, tempCelsius2).isOK();
     inputs.appliedVolts = appliedVolts.getValueAsDouble();
     inputs.supplyCurrentAmps = supplyCurrent.getValueAsDouble();
     inputs.tempCelsius = tempCelsius.getValueAsDouble();
+    inputs.appliedVolts2 = appliedVolts2.getValueAsDouble();
+    inputs.supplyCurrentAmps2 = supplyCurrent2.getValueAsDouble();
+    inputs.tempCelsius2 = tempCelsius2.getValueAsDouble();
   }
 
   @Override
   public void runVolts(double voltage) {
     motor.setControl(voltageControl.withOutput(voltage));
+    motor2.setControl(voltageControl.withOutput(voltage));
   }
 
   @Override
   public void stop() {
     motor.setControl(neutralControl);
+    motor2.setControl(neutralControl);
   }
 }

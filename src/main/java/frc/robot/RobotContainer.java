@@ -1,5 +1,6 @@
 package frc.robot;
 
+import com.ctre.phoenix6.SignalLogger;
 import com.pathplanner.lib.auto.AutoBuilder;
 import com.pathplanner.lib.auto.NamedCommands;
 import edu.wpi.first.math.Matrix;
@@ -10,7 +11,6 @@ import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Pose3d;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Rotation3d;
-import edu.wpi.first.math.geometry.Transform3d;
 import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.math.geometry.Translation3d;
 import edu.wpi.first.math.util.Units;
@@ -25,12 +25,13 @@ import edu.wpi.first.wpilibj2.command.WaitCommand;
 import edu.wpi.first.wpilibj2.command.button.CommandPS5Controller;
 import edu.wpi.first.wpilibj2.command.button.CommandXboxController;
 import edu.wpi.first.wpilibj2.command.button.Trigger;
+import edu.wpi.first.wpilibj2.command.sysid.SysIdRoutine.Direction;
 import frc.robot.RobotState.VisionObservation;
 import frc.robot.commands.BLineAutos;
 import frc.robot.commands.TrackTarget;
 import frc.robot.commands.drive.DefaultDrive;
 import frc.robot.commands.intake.IntakeCommands;
-import frc.robot.commands.intake.SetIntakePivotAngle;
+import frc.robot.commands.intake.SetIntakeDeployPos;
 import frc.robot.generated.TunerConstants;
 import frc.robot.subsystems.drive.Drive;
 import frc.robot.subsystems.drive.GyroIO;
@@ -47,12 +48,13 @@ import frc.robot.subsystems.hood.HoodIO;
 import frc.robot.subsystems.hood.HoodIOSim;
 import frc.robot.subsystems.hood.HoodIOTalonFX;
 import frc.robot.subsystems.intake.Intake;
+import frc.robot.subsystems.intake.IntakeConstants;
+import frc.robot.subsystems.intake.IntakeDeploy;
+import frc.robot.subsystems.intake.IntakeDeployIO;
+import frc.robot.subsystems.intake.IntakeDeployIOTalonFX;
 import frc.robot.subsystems.intake.IntakeIO;
 import frc.robot.subsystems.intake.IntakeIOSim;
 import frc.robot.subsystems.intake.IntakeIOTalonFX;
-import frc.robot.subsystems.intake.IntakePivot;
-import frc.robot.subsystems.intake.IntakePivotIO;
-import frc.robot.subsystems.intake.IntakePivotIOTalonFX;
 import frc.robot.subsystems.led.LEDSubsystem;
 import frc.robot.subsystems.shooter.LaunchCalculator;
 import frc.robot.subsystems.shooter.LaunchCalculator.DesiredAction;
@@ -74,13 +76,13 @@ import frc.robot.subsystems.vision.VisionIO;
 import frc.robot.subsystems.vision.VisionIOLimelight;
 import frc.robot.util.AllianceFlipUtil;
 import frc.robot.util.GeomUtil;
-import org.littletonrobotics.junction.Logger;
+import frc.robot.util.LoggedTunableNumber;
 import org.littletonrobotics.junction.networktables.LoggedDashboardChooser;
 
 /** Robot container with subsystems, commands, and button mappings. */
 public class RobotContainer {
   private final Drive drive;
-  public final IntakePivot intakePivot;
+  public final IntakeDeploy intakeDeploy;
   public final Intake intake;
   private final Shooter shooter;
   private final Spindexer spindexer;
@@ -91,6 +93,7 @@ public class RobotContainer {
   public final LEDSubsystem ledSubsystem;
   private final CommandXboxController controller = new CommandXboxController(0);
   private final CommandPS5Controller operator = new CommandPS5Controller(1);
+  private final CommandXboxController testController = new CommandXboxController(2);
 
   private static boolean allowAutoAlign = true;
   private static boolean allowAutoSwitchTarget = true;
@@ -101,6 +104,11 @@ public class RobotContainer {
   private final LoggedDashboardChooser<Command> autoChooser;
 
   private BLineAutos bLineAutos;
+
+  private static final LoggedTunableNumber feederTuningRpm =
+      new LoggedTunableNumber("Feeder/TuningRPM", 1200.0);
+  private static final LoggedTunableNumber spindexerTuningRpm =
+      new LoggedTunableNumber("Spindexer/TuningRPM", 1200.0);
 
   public RobotContainer() {
     ledSubsystem = new LEDSubsystem();
@@ -119,7 +127,7 @@ public class RobotContainer {
                 new ModuleIOTalonFX(TunerConstants.BackLeft),
                 new ModuleIOTalonFX(TunerConstants.BackRight));
 
-        intakePivot = new IntakePivot(new IntakePivotIOTalonFX());
+        intakeDeploy = new IntakeDeploy(new IntakeDeployIOTalonFX());
         intake = new Intake(new IntakeIOTalonFX());
         shooter = new Shooter(new ShooterIOTalonFX());
         spindexer = new Spindexer(new SpindexerIOTalonFX());
@@ -131,30 +139,38 @@ public class RobotContainer {
             new VisionIOLimelight(
                 "limelight",
                 () -> RobotState.getInstance().getEstimatedPose().getRotation(),
-                () -> RobotState.getInstance().getDriveAngularVelocity());
+                () -> RobotState.getInstance().getDriveAngularVelocity(),
+                () -> {
+                  final Rotation3d cameraRot =
+                      new Rotation3d(0, Units.degreesToRadians(-15.0), Units.degreesToRadians(3.2));
+                  final Pose3d cameraPose = new Pose3d(-0.269352, 0.1087, 0.510, cameraRot);
+                  return cameraPose;
+                });
 
-        VisionIO turretCameraIO =
+        VisionIO backCameraIO =
             new VisionIOLimelight(
-                "limelight-turret",
+                "limelight-back",
                 () -> RobotState.getInstance().getEstimatedPose().getRotation(),
                 () -> RobotState.getInstance().getDriveAngularVelocity(),
                 () -> {
-                  Transform3d turretRotation =
-                      new Transform3d(
-                          new Translation3d(),
-                          new Rotation3d(
-                              0.0, 0.0, Units.degreesToRadians(turret.getTurretAngle())));
-
-                  Pose3d turretCameraPose =
-                      new Pose3d()
-                          .transformBy(VisionConstants.ROBOT_TO_TURRET)
-                          .transformBy(turretRotation)
-                          .transformBy(VisionConstants.TURRET_TO_CAMERA);
-
-                  Logger.recordOutput("Vision/TurretLLPose", turretCameraPose);
-                  return turretCameraPose;
+                  final Rotation3d cameraRot =
+                      new Rotation3d(0, Units.degreesToRadians(-15.0), Math.PI);
+                  final Pose3d cameraPose = new Pose3d(-0.31478, 0.2511, 0.508, cameraRot);
+                  return cameraPose;
                 });
-        vision = new Vision(staticCameraIO, turretCameraIO);
+
+        VisionIO sideCameraIO =
+            new VisionIOLimelight(
+                "limelight-side",
+                () -> RobotState.getInstance().getEstimatedPose().getRotation(),
+                () -> RobotState.getInstance().getDriveAngularVelocity(),
+                () -> {
+                  final Rotation3d cameraRot = new Rotation3d(0, Units.degreesToRadians(15.0), 0.0);
+                  final Pose3d cameraPose = new Pose3d(0.0262, -0.037019, 0.373, cameraRot);
+                  return cameraPose;
+                });
+
+        vision = new Vision(staticCameraIO, backCameraIO); // TODO: add side camera
         break;
 
       case SIM:
@@ -166,7 +182,7 @@ public class RobotContainer {
                 new ModuleIOSim(TunerConstants.BackLeft),
                 new ModuleIOSim(TunerConstants.BackRight));
 
-        intakePivot = new IntakePivot(new IntakePivotIO() {});
+        intakeDeploy = new IntakeDeploy(new IntakeDeployIO() {});
         intake = new Intake(new IntakeIOSim());
         shooter = new Shooter(new ShooterIOSim());
         spindexer = new Spindexer(new SpindexerIOSim());
@@ -185,7 +201,7 @@ public class RobotContainer {
                 new ModuleIO() {},
                 new ModuleIO() {},
                 new ModuleIO() {});
-        intakePivot = new IntakePivot(new IntakePivotIO() {});
+        intakeDeploy = new IntakeDeploy(new IntakeDeployIO() {});
         intake = new Intake(new IntakeIO() {});
         shooter = new Shooter(new ShooterIO() {});
         spindexer = new Spindexer(new SpindexerIO() {});
@@ -200,7 +216,7 @@ public class RobotContainer {
 
     bLineAutos =
         new BLineAutos(
-            drive.pathBuilder, turret, hood, shooter, intake, intakePivot, feeder, spindexer);
+            drive.pathBuilder, turret, hood, shooter, intake, intakeDeploy, feeder, spindexer);
 
     NamedCommands.registerCommand(
         "TrackTarget",
@@ -238,23 +254,30 @@ public class RobotContainer {
     NamedCommands.registerCommand(
         "IntakeCommand",
         intake
-            .runIntakeCommand(() -> 7.7)
-            .alongWith(new SetIntakePivotAngle(intakePivot, 2.0, true)));
+            .runIntakeCommand(() -> 10)
+            .alongWith(
+                new SetIntakeDeployPos(
+                    intakeDeploy, IntakeConstants.intakeDeployExtendLimitPos, true)));
 
     NamedCommands.registerCommand(
-        "DeployIntake", new InstantCommand(() -> intakePivot.setPivotAngle(10.0)));
+        "DeployIntake",
+        new InstantCommand(
+            () ->
+                intakeDeploy.setPivotPos(
+                    IntakeConstants
+                        .intakeDeployExtendLimitPos))); // TODO: add intake deploy command
 
     NamedCommands.registerCommand(
         "IntakeWiggle",
         new RepeatCommand(
-                new SetIntakePivotAngle(intakePivot, 65, true)
-                    .withTimeout(0.4)
+                new SetIntakeDeployPos(intakeDeploy, 2.8, true)
+                    .withTimeout(1.0)
                     .andThen(new WaitCommand(0.1))
                     .andThen(
-                        new SetIntakePivotAngle(intakePivot, 40, true)
-                            .withTimeout(0.3)
+                        new SetIntakeDeployPos(intakeDeploy, 1.3, true)
+                            .withTimeout(1.0)
                             .andThen(new WaitCommand(0.1))))
-            .alongWith(IntakeCommands.setIntakeVoltage(6.5, intake)));
+            .alongWith(IntakeCommands.setIntakeVoltage(10, intake)));
 
     NamedCommands.registerCommand(
         "EnableVision", new InstantCommand(() -> Vision.allowVisionMeasurements = true));
@@ -280,7 +303,7 @@ public class RobotContainer {
               if (LaunchCalculator.getInstance().getParameters().isValid()
                   && atGoalDebouncer.calculate(hood.atGoal() && shooter.atGoal() && turret.atGoal())
                   && !Turret.wrappingAngle) {
-                feeder.runVelocity(1000);
+                feeder.runVelocity(2000);
                 spindexer.setVoltage(5);
                 simBallShoot();
               } else {
@@ -297,11 +320,40 @@ public class RobotContainer {
 
     autoChooser = new LoggedDashboardChooser<>("Auto Choices", AutoBuilder.buildAutoChooser());
 
-    //autoChooser.addOption("BLine Test Auto", bLineAutos.testAuto());
+    // autoChooser.addOption("BLine Test Auto", bLineAutos.testAuto());
     autoChooser.addDefaultOption(
         "Reset Sensors",
         new InstantCommand(() -> RobotState.getInstance().resetPose(new Pose2d())));
 
+    autoChooser.addOption(
+        "Shooter SysId",
+        shooter
+            .sysIdQuasistatic(edu.wpi.first.wpilibj2.command.sysid.SysIdRoutine.Direction.kForward)
+            .andThen(
+                new WaitCommand(1.5)
+                    .andThen(
+                        shooter
+                            .sysIdQuasistatic(Direction.kReverse)
+                            .andThen(
+                                new WaitCommand(1.5)
+                                    .andThen(
+                                        shooter
+                                            .sysIdDynamic(Direction.kForward)
+                                            .andThen(
+                                                new WaitCommand(1.5)
+                                                    .andThen(
+                                                        shooter
+                                                            .sysIdDynamic(Direction.kReverse)
+                                                            .andThen(
+                                                                new InstantCommand(
+                                                                    () ->
+                                                                        SignalLogger
+                                                                            .stop())))))))));
+
+    autoChooser.addOption(
+        "Shooter Quasistatic SysId",
+        shooter.sysIdQuasistatic(
+            edu.wpi.first.wpilibj2.command.sysid.SysIdRoutine.Direction.kForward));
     configureButtonBindings();
 
     m_allianceChooser = new LoggedDashboardChooser<>("Alliance Chooser");
@@ -348,10 +400,12 @@ public class RobotContainer {
         .rightBumper()
         .toggleOnTrue(
             intake
-                .runIntakeCommand(() -> 6.5)
-                .alongWith(new SetIntakePivotAngle(intakePivot, 2.0, true)));
+                .runIntakeCommand(() -> 10)
+                .alongWith(
+                    new SetIntakeDeployPos(
+                        intakeDeploy, IntakeConstants.intakeDeployExtendLimitPos, true)));
 
-    controller.leftBumper().toggleOnTrue(intake.runIntakeCommand(() -> -6.5));
+    controller.leftBumper().toggleOnTrue(intake.runIntakeCommand(() -> -8.0));
 
     Trigger inLaunchingTolerance =
         new Trigger(() -> hood.atGoal() && shooter.atGoal() && turret.atGoal());
@@ -372,7 +426,7 @@ public class RobotContainer {
         .whileTrue(
             Commands.run(
                 () -> {
-                  intake.setVoltage(6.5);
+                  intake.setVoltage(10);
                   intake.setRunning(true);
                 }))
         .and(() -> LaunchCalculator.getInstance().getParameters().isValid())
@@ -380,7 +434,7 @@ public class RobotContainer {
         .and(inLaunchingTolerance.debounce(0.25, DebounceType.kFalling))
         .whileTrue(
             Commands.parallel(
-                feeder.runFeederVelocityCommand(() -> 1200.0),
+                feeder.runFeederVelocityCommand(() -> 1500.0),
                 spindexer.setSpindexerVoltageCommand(() -> 5.0),
                 simBallCommand()));
 
@@ -414,15 +468,16 @@ public class RobotContainer {
         .a()
         .whileTrue(
             new RepeatCommand(
-                    new SetIntakePivotAngle(intakePivot, 65, true)
-                        .withTimeout(0.4)
+                    new SetIntakeDeployPos(intakeDeploy, 2.8, true)
+                        .withTimeout(1.0)
                         .andThen(new WaitCommand(0.1))
                         .andThen(
-                            new SetIntakePivotAngle(intakePivot, 40, true)
-                                .withTimeout(0.3)
+                            new SetIntakeDeployPos(intakeDeploy, 1.3, true)
+                                .withTimeout(1.0)
                                 .andThen(new WaitCommand(0.1))))
-                .alongWith(IntakeCommands.setIntakeVoltage(6.5, intake)))
-        .onFalse(new SetIntakePivotAngle(intakePivot, 2.0, true));
+                .alongWith(IntakeCommands.setIntakeVoltage(10, intake)));
+
+    testController.y().whileTrue(spindexer.runSpindexerVelocityCommand(spindexerTuningRpm::get));
 
     operator
         .cross()
@@ -437,7 +492,7 @@ public class RobotContainer {
                   }
                 }));
 
-    operator.triangle().onTrue(new SetIntakePivotAngle(intakePivot, 65.0, true));
+    operator.triangle().onTrue(new SetIntakeDeployPos(intakeDeploy, 1.3, true));
     operator.R1().whileTrue(feeder.setFeederVoltageCommand(() -> -10));
 
     // 3170 rpm 18.8 deg tower preset
@@ -451,7 +506,7 @@ public class RobotContainer {
         .whileTrue(
             Commands.parallel(
                 spindexer.setSpindexerVoltageCommand(() -> 5),
-                feeder.setFeederVoltageCommandNew(() -> 10.0, () -> 4.0)));
+                feeder.setFeederVoltageCommand(() -> 10.0)));
     // 2800 rpm 2 deg yapisik atma
     operator
         .L2()
@@ -462,7 +517,7 @@ public class RobotContainer {
         .whileTrue(
             Commands.parallel(
                 spindexer.setSpindexerVoltageCommand(() -> 5),
-                feeder.setFeederVoltageCommandNew(() -> 10.0, () -> 4.0)));
+                feeder.setFeederVoltageCommand(() -> 10.0)));
 
     // ==========================================
     //            LED STATE LOGIC
@@ -542,7 +597,7 @@ public class RobotContainer {
         double rpm = params.flywheelSpeed();
         double speed =
             (rpm / 60.0) * 2 * Math.PI * 0.0508 * 0.43; // TODO: Calibrate conversion to m/s
-        double hoodAngleDeg = 80.0 - hood.getHoodAngle();
+        double hoodAngleDeg = 70.0 - hood.getHoodAngle();
         var robotVel = RobotState.getInstance().getFieldVelocity();
         double vx =
             launchHeading.getCos() * speed * Math.cos(Math.toRadians(hoodAngleDeg))

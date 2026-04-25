@@ -9,7 +9,6 @@ import com.ctre.phoenix6.configs.TalonFXConfiguration;
 import com.ctre.phoenix6.controls.MotionMagicVoltage;
 import com.ctre.phoenix6.hardware.TalonFX;
 import com.ctre.phoenix6.signals.FeedbackSensorSourceValue;
-import com.ctre.phoenix6.signals.GravityTypeValue;
 import com.ctre.phoenix6.signals.InvertedValue;
 import com.ctre.phoenix6.signals.NeutralModeValue;
 import edu.wpi.first.units.measure.Angle;
@@ -19,8 +18,8 @@ import edu.wpi.first.units.measure.Temperature;
 import edu.wpi.first.units.measure.Voltage;
 import frc.robot.Constants;
 
-public class IntakePivotIOTalonFX implements IntakePivotIO {
-  private final TalonFX pivotMotor;
+public class IntakeDeployIOTalonFX implements IntakeDeployIO {
+  private final TalonFX deployMotor;
 
   // Status Signals
   private final StatusSignal<Angle> position;
@@ -29,58 +28,56 @@ public class IntakePivotIOTalonFX implements IntakePivotIO {
   private final StatusSignal<Current> supplyCurrent;
   private final StatusSignal<Temperature> tempCelsius;
 
-  public IntakePivotIOTalonFX() {
-    pivotMotor = new TalonFX(IntakeConstants.INTAKE_PIVOT_MOTOR_ID, Constants.CANIVORE_BUS);
+  public IntakeDeployIOTalonFX() {
+    deployMotor = new TalonFX(IntakeConstants.INTAKE_DEPLOY_MOTOR_ID, Constants.CANIVORE_BUS);
 
-    configPivotTalonFX(pivotMotor);
-    // pivotMotor.setPosition(IntakeConstants.intakePivotStartingPos / 360.0);
+    configDeployTalonFX(deployMotor);
+    // deployMotor.setPosition(IntakeConstants.intakeDeployStartingPos / 360.0);
 
     // Get StatusSignals
-    position = pivotMotor.getPosition();
-    velocity = pivotMotor.getVelocity();
-    appliedVolts = pivotMotor.getMotorVoltage();
-    supplyCurrent = pivotMotor.getSupplyCurrent();
-    tempCelsius = pivotMotor.getDeviceTemp();
-
+    position = deployMotor.getPosition();
+    velocity = deployMotor.getVelocity();
+    appliedVolts = deployMotor.getMotorVoltage();
+    supplyCurrent = deployMotor.getSupplyCurrent();
+    tempCelsius = deployMotor.getDeviceTemp();
     BaseStatusSignal.setUpdateFrequencyForAll(
         50.0, position, velocity, appliedVolts, supplyCurrent, tempCelsius);
   }
 
-  public void configPivotTalonFX(TalonFX talon) {
-
-    // talon.getConfigurator().apply(new TalonFXConfiguration());
+  public void configDeployTalonFX(TalonFX talon) {
+    ;
     TalonFXConfiguration config = new TalonFXConfiguration();
 
     config.Slot0.kP = IntakeConstants.kP;
     config.Slot0.kI = 0;
     config.Slot0.kD = IntakeConstants.kD;
-    config.Slot0.kG = IntakeConstants.kG;
-    config.Slot0.GravityType = GravityTypeValue.Arm_Cosine;
+    config.Slot0.kG = 0.0;
 
     config.Feedback.FeedbackSensorSource = FeedbackSensorSourceValue.RotorSensor;
     config.Feedback.FeedbackRotorOffset = 0.0;
-    config.Feedback.SensorToMechanismRatio = IntakeConstants.INTAKE_PIVOT_SENSOR_TO_MECHANISM_RATIO;
+    config.Feedback.SensorToMechanismRatio =
+        IntakeConstants.INTAKE_DEPLOY_SENSOR_TO_MECHANISM_RATIO;
 
-    config.MotorOutput.NeutralMode = NeutralModeValue.Brake;
-    config.MotorOutput.Inverted = InvertedValue.Clockwise_Positive;
+    config.MotorOutput.NeutralMode = NeutralModeValue.Coast;
+    config.MotorOutput.Inverted = InvertedValue.CounterClockwise_Positive;
 
     config.Voltage.PeakForwardVoltage = 8.0;
-    config.Voltage.PeakReverseVoltage = -6.0;
+    config.Voltage.PeakReverseVoltage = -8.0;
 
-    config.CurrentLimits.SupplyCurrentLimit = IntakeConstants.INTAKE_PIVOT_SUPPLY_CURRENT_LIMIT;
+    config.CurrentLimits.SupplyCurrentLimit = IntakeConstants.INTAKE_DEPLOY_SUPPLY_CURRENT_LIMIT;
     config.CurrentLimits.SupplyCurrentLimitEnable = true;
-    config.CurrentLimits.StatorCurrentLimit = IntakeConstants.INTAKE_PIVOT_STATOR_CURRENT_LIMIT;
+    config.CurrentLimits.StatorCurrentLimit = IntakeConstants.INTAKE_DEPLOY_STATOR_CURRENT_LIMIT;
     config.CurrentLimits.StatorCurrentLimitEnable = true;
 
-    config.MotionMagic.MotionMagicCruiseVelocity = IntakeConstants.intakePivotCruiseVel;
-    config.MotionMagic.MotionMagicAcceleration = IntakeConstants.intakePivotAccel;
+    config.MotionMagic.MotionMagicCruiseVelocity = IntakeConstants.intakeDeployCruiseVel;
+    config.MotionMagic.MotionMagicAcceleration = IntakeConstants.intakeDeployAccel;
 
-    config.SoftwareLimitSwitch.ForwardSoftLimitEnable = true;
+    config.SoftwareLimitSwitch.ForwardSoftLimitEnable = true; // TODO: tune and enable
     config.SoftwareLimitSwitch.ReverseSoftLimitEnable = true;
 
-    config.SoftwareLimitSwitch.ForwardSoftLimitThreshold = 90.0 / 360.0;
-    config.SoftwareLimitSwitch.ReverseSoftLimitThreshold =
-        IntakeConstants.intakePivotExtendLimitPos / 360.0;
+    config.SoftwareLimitSwitch.ForwardSoftLimitThreshold =
+        IntakeConstants.intakeDeployExtendLimitPos;
+    config.SoftwareLimitSwitch.ReverseSoftLimitThreshold = IntakeConstants.intakeDeployStartingPos;
 
     config.OpenLoopRamps.DutyCycleOpenLoopRampPeriod = 1;
     config.OpenLoopRamps.VoltageOpenLoopRampPeriod = 0;
@@ -90,41 +87,39 @@ public class IntakePivotIOTalonFX implements IntakePivotIO {
 
   @Override
   public void setVoltage(double voltage) {
-    pivotMotor.setVoltage(voltage);
+    deployMotor.setVoltage(voltage);
   }
 
   @Override
-  public void setPivotAngle(double angle) {
-    var rotAngle = angle / 360.0;
-    pivotMotor.setControl(new MotionMagicVoltage(rotAngle).withSlot(0));
+  public void setDeployPos(double rotations) {
+    deployMotor.setControl(new MotionMagicVoltage(rotations).withSlot(0));
   }
 
   @Override
-  public void setPivotAngle(double angle, double cruiseVel, double acceleration) {
-    var rotAngle = angle / 360;
-    pivotMotor
+  public void setDeployPos(double rotations, double cruiseVel, double acceleration) {
+    deployMotor
         .getConfigurator()
         .apply(
             new MotionMagicConfigs()
                 .withMotionMagicAcceleration(acceleration)
                 .withMotionMagicCruiseVelocity(cruiseVel));
-    pivotMotor.setControl(new MotionMagicVoltage(rotAngle).withSlot(0));
+    deployMotor.setControl(new MotionMagicVoltage(rotations).withSlot(0));
   }
 
   @Override
-  public void resetPivotAngle(double angle) {
-    tryUntilOk(5, () -> pivotMotor.setPosition(angle / 360.0));
+  public void resetDeployPos(double rotations) {
+    tryUntilOk(5, () -> deployMotor.setPosition(rotations));
   }
 
   @Override
-  public void updateInputs(IntakePivotIOInputs inputs) {
+  public void updateInputs(IntakeDeployIOInputs inputs) {
     // Refresh all signals and check connection status
     inputs.motorConnected =
         BaseStatusSignal.refreshAll(position, velocity, appliedVolts, supplyCurrent, tempCelsius)
             .isOK();
 
-    inputs.positionDegrees = position.getValueAsDouble() * 360.0;
-    inputs.velocityDegreesPerSecond = velocity.getValueAsDouble() * 360.0;
+    inputs.positionRotations = position.getValueAsDouble();
+    inputs.velocityRotationsPerSecond = velocity.getValueAsDouble();
     inputs.appliedVolts = appliedVolts.getValueAsDouble();
     inputs.supplyCurrentAmps = supplyCurrent.getValueAsDouble();
     inputs.tempCelsius = tempCelsius.getValueAsDouble();

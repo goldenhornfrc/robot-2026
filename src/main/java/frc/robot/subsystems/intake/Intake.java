@@ -17,13 +17,17 @@ public class Intake extends SubsystemBase {
   private boolean running = false;
   private final Debouncer motorConnectedDebouncer =
       new Debouncer(0.5, Debouncer.DebounceType.kFalling);
+  private final Debouncer motor2ConnectedDebouncer =
+      new Debouncer(0.5, Debouncer.DebounceType.kFalling);
 
   private final Alert motorDisconnected;
+  private final Alert motor2Disconnected;
 
   public Intake(IntakeIO io) {
     this.io = io;
 
     motorDisconnected = new Alert("Intake motor disconnected!", Alert.AlertType.kWarning);
+    motor2Disconnected = new Alert("Intake motor 2 disconnected!", Alert.AlertType.kWarning);
   }
 
   @Override
@@ -32,6 +36,7 @@ public class Intake extends SubsystemBase {
     Logger.processInputs("Intake", inputs);
 
     motorDisconnected.set(!motorConnectedDebouncer.calculate(inputs.motorConnected));
+    motor2Disconnected.set(!motor2ConnectedDebouncer.calculate(inputs.motor2Connected));
   }
 
   /**

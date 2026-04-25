@@ -45,10 +45,10 @@ public class FeederIOTalonFX implements FeederIO {
 
     controllerConfig = new com.ctre.phoenix6.configs.Slot0Configs();
 
-    controllerConfig.kP = 2.0;
+    controllerConfig.kP = 0.5;
     controllerConfig.kI = 0;
     controllerConfig.kD = 0;
-    controllerConfig.kV = 0.5;
+    controllerConfig.kV = 0.255;
 
     TalonFXConfiguration baseConfig = new TalonFXConfiguration();
     baseConfig.Slot0 = controllerConfig;
@@ -56,7 +56,7 @@ public class FeederIOTalonFX implements FeederIO {
     baseConfig.MotorOutput.NeutralMode = NeutralModeValue.Coast;
     baseConfig.MotorOutput.Inverted = InvertedValue.CounterClockwise_Positive;
 
-    baseConfig.Feedback.SensorToMechanismRatio = 4.0;
+    baseConfig.Feedback.SensorToMechanismRatio = 2.0;
 
     baseConfig.CurrentLimits.SupplyCurrentLimit = FeederConstants.FEEDER_SUPPLY_CURRENT_LIMIT;
     baseConfig.CurrentLimits.SupplyCurrentLimitEnable = true;

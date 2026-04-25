@@ -35,6 +35,7 @@ public class Robot extends LoggedRobot {
   public static FuelPhysicsSim ballSim;
 
   public Robot() {
+    SignalLogger.stop();
     Logger.recordMetadata("ProjectName", BuildConstants.MAVEN_NAME);
     Logger.recordMetadata("BuildDate", BuildConstants.BUILD_DATE);
     Logger.recordMetadata("GitSHA", BuildConstants.GIT_SHA);
@@ -61,7 +62,6 @@ public class Robot extends LoggedRobot {
         Logger.addDataReceiver(new WPILOGWriter(LogFileUtil.addPathSuffix(logPath, "_sim")));
       }
     }
-    SignalLogger.stop();
     AutoLogOutputManager.addObject(RobotState.getInstance());
 
     Logger.start();
@@ -105,7 +105,7 @@ public class Robot extends LoggedRobot {
 
     autonomousCommand = robotContainer.getAutonomousCommand();
     robotContainer.hood.resetHoodAngle(HoodConstants.kHoodStartingPos);
-    robotContainer.intakePivot.resetPivotAngle(IntakeConstants.intakePivotStartingPos);
+    robotContainer.intakeDeploy.resetPos(IntakeConstants.intakeDeployStartingPos);
     isDisabled = false;
     isAuto = true;
     CommandScheduler.getInstance().cancelAll();
@@ -162,9 +162,9 @@ public class Robot extends LoggedRobot {
     // ballSim.placeFieldBalls(); // spawns all the game pieces
 
     // tell it about your robot - replace placeholders with actual bot dimensions
-    double robotWidth = 0.6340; // TODO: Replace
-    double robotLength = 0.762; // TODO: Replace
-    double bumperHeight = 0.1; // TODO: Replace
+    double robotWidth = 0.6340;
+    double robotLength = 0.762;
+    double bumperHeight = 0.1; 
 
     ballSim.configureRobot(
         robotWidth,

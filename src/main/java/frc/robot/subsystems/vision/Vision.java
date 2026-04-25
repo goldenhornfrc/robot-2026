@@ -146,14 +146,16 @@ public class Vision extends SubsystemBase {
         double stdDevFactor = (distance * distance) / (count * count);
 
         double linearStdDev = linearStdDevBaseline * stdDevFactor;
-        double angularStdDev = cameraIndex == 1 ? Double.POSITIVE_INFINITY : 0.15;
+        double angularStdDev = angularStdDevBaseline * stdDevFactor; // Baseline angular std dev, tuned empirically
 
-        if (count <= 1 && cameraIndex == 1) {
+        if (count <= 1) {
           angularStdDev = Double.POSITIVE_INFINITY;
         }
 
         if (observation.type() == PoseObservationType.MEGATAG_2) {
           linearStdDev *= linearStdDevMegatag2Factor;
+          angularStdDev = Double.POSITIVE_INFINITY;
+
         }
 
         if (cameraIndex < cameraStdDevFactors.length) {

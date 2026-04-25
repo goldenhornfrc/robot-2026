@@ -15,13 +15,13 @@ import frc.robot.FieldConstants;
 import frc.robot.Robot;
 import frc.robot.RobotState;
 import frc.robot.commands.intake.IntakeCommands;
-import frc.robot.commands.intake.SetIntakePivotAngle;
+import frc.robot.commands.intake.SetIntakeDeployPos;
 import frc.robot.lib.BLine.FollowPath;
 import frc.robot.lib.BLine.Path;
 import frc.robot.subsystems.feeder.Feeder;
 import frc.robot.subsystems.hood.Hood;
 import frc.robot.subsystems.intake.Intake;
-import frc.robot.subsystems.intake.IntakePivot;
+import frc.robot.subsystems.intake.IntakeDeploy;
 import frc.robot.subsystems.shooter.LaunchCalculator;
 import frc.robot.subsystems.shooter.LaunchCalculator.DesiredAction;
 import frc.robot.subsystems.shooter.Shooter;
@@ -45,7 +45,7 @@ public class BLineAutos {
       Hood hood,
       Shooter shooter,
       Intake intake,
-      IntakePivot intakePivot,
+      IntakeDeploy intakePivot,
       Feeder feeder,
       Spindexer spindexer) {
     this.pathBuilder = pathBuilder;
@@ -97,7 +97,7 @@ public class BLineAutos {
   private final Hood hood;
   private final Shooter shooter;
   private final Intake intake;
-  private final IntakePivot intakePivot;
+  private final IntakeDeploy intakePivot;
   private final Feeder feeder;
   private final Spindexer spindexer;
 
@@ -138,20 +138,20 @@ public class BLineAutos {
   private Command intakeCommand() {
     return intake
         .runIntakeCommand(() -> 7.7)
-        .alongWith(new SetIntakePivotAngle(intakePivot, 2.0, true));
+        .alongWith(new SetIntakeDeployPos(intakePivot, 2.0, true));
   }
 
   private Command deployIntake() {
-    return new InstantCommand(() -> intakePivot.setPivotAngle(10.0));
+    return new InstantCommand(); // TODO: add intake deploy command
   }
 
   private Command intakeWiggle() {
     return new RepeatCommand(
-            new SetIntakePivotAngle(intakePivot, 65, true)
+            new SetIntakeDeployPos(intakePivot, 65, true)
                 .withTimeout(0.4)
                 .andThen(new WaitCommand(0.1))
                 .andThen(
-                    new SetIntakePivotAngle(intakePivot, 40, true)
+                    new SetIntakeDeployPos(intakePivot, 40, true)
                         .withTimeout(0.3)
                         .andThen(new WaitCommand(0.1))))
         .alongWith(IntakeCommands.setIntakeVoltage(6.5, intake));
@@ -204,7 +204,7 @@ public class BLineAutos {
         trackTarget(),
         setShooterRPMDistance(),
         setHoodAngleDistance(),
-        //setShootMode(),
+        // setShootMode(),
         new WaitCommand(0.15).andThen(feedBalls()));
   }
 

@@ -8,8 +8,8 @@ public class TurretConstants {
   public static final double TURRET_SENSOR_TO_MECHANISM_RATIO = 40.0;
 
   // Motion magic parameters
-  public static final double kTurretCCWLimit = 165.0;
-  public static final double kTurretCWLimit = -233.0;
+  public static final double kTurretCCWLimit = 187.0;
+  public static final double kTurretCWLimit = -283.0;
   public static final double kTurretCruiseVel = 20.0;
   public static final double kTurretAccel = 40.0;
 

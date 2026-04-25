@@ -8,7 +8,9 @@ import edu.wpi.first.math.filter.Debouncer;
 import edu.wpi.first.wpilibj.Alert;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
+import frc.robot.util.LoggedTunableNumber;
 import java.util.function.DoubleSupplier;
+import org.littletonrobotics.junction.AutoLogOutput;
 import org.littletonrobotics.junction.Logger;
 
 public class Spindexer extends SubsystemBase {
@@ -21,6 +23,12 @@ public class Spindexer extends SubsystemBase {
       new Debouncer(0.5, Debouncer.DebounceType.kFalling);
 
   private final Alert motorDisconnected;
+
+  // Logged tunables for Talon spindexer PID/FF tuning
+  private static final LoggedTunableNumber spindexer_kP =
+      new LoggedTunableNumber("Spindexer/Talon/kP", SpindexerConstants.KP);
+  private static final LoggedTunableNumber spindexer_kV =
+      new LoggedTunableNumber("Spindexer/Talon/kV", SpindexerConstants.KV);
 
   public Spindexer(SpindexerIO io) {
     this.io = io;
@@ -35,6 +43,8 @@ public class Spindexer extends SubsystemBase {
     Logger.processInputs("Spindexer Subsystem", inputs);
 
     motorDisconnected.set(!motorConnectedDebouncer.calculate(inputs.motorConnected));
+    LoggedTunableNumber.ifChanged(hashCode(), pid -> io.setPID(pid[0], 0.0, 0.0), spindexer_kP);
+    LoggedTunableNumber.ifChanged(hashCode(), ffv -> io.setFF(0.0, ffv[0], 0.0), spindexer_kV);
   }
 
   /**
@@ -46,6 +56,23 @@ public class Spindexer extends SubsystemBase {
     io.runVolts(voltage);
   }
 
+  public void runVelocity(double velocityRPM) {
+    io.runVelocity(velocityRPM);
+  }
+
+  public void setPID(double kP, double kI, double kD) {
+    io.setPID(kP, kI, kD);
+  }
+
+  public void setFF(double kS, double kV, double kA) {
+    io.setFF(kS, kV, kA);
+  }
+
+  @AutoLogOutput(key = "Spindexer/Talon/VelocityRPM")
+  public double getVelocityRpm() {
+    return inputs.velocityRPM;
+  }
+
   /** Stop the spindexer motor. */
   public void stop() {
     io.stop();
@@ -53,6 +80,11 @@ public class Spindexer extends SubsystemBase {
 
   public Command setSpindexerVoltageCommand(DoubleSupplier voltageSupplier) {
     return runEnd(() -> setVoltage(voltageSupplier.getAsDouble()), this::stop)
-        .withName("Spindexer Voltage Command (" + voltageSupplier.getAsDouble() + "V)");
+        .withName("Spindexer Voltage Command");
+  }
+
+  public Command runSpindexerVelocityCommand(DoubleSupplier velocitySupplier) {
+    return runEnd(() -> runVelocity(velocitySupplier.getAsDouble()), this::stop)
+        .withName("Spindexer Velocity Command");
   }
 }

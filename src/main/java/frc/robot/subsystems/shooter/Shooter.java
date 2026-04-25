@@ -4,10 +4,15 @@
 
 package frc.robot.subsystems.shooter;
 
+import static edu.wpi.first.units.Units.Volts;
+
+import com.ctre.phoenix6.SignalLogger;
 import edu.wpi.first.math.filter.Debouncer;
+import edu.wpi.first.units.measure.Voltage;
 import edu.wpi.first.wpilibj.Alert;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
+import edu.wpi.first.wpilibj2.command.sysid.SysIdRoutine;
 import frc.robot.util.LoggedTunableNumber;
 import java.util.function.DoubleSupplier;
 import org.littletonrobotics.junction.AutoLogOutput;
@@ -45,6 +50,8 @@ public class Shooter extends SubsystemBase {
 
   private double targetRpm = 0.0;
 
+  private final SysIdRoutine sysIdRoutine;
+
   public Shooter(ShooterIO io) {
     this.io = io;
 
@@ -52,6 +59,19 @@ public class Shooter extends SubsystemBase {
         new Alert("Left flywheel motor disconnected!", Alert.AlertType.kWarning);
     rightMotorDisconnected =
         new Alert("Right flywheel motor disconnected!", Alert.AlertType.kWarning);
+
+    sysIdRoutine =
+        new SysIdRoutine(
+            new SysIdRoutine.Config(
+                edu.wpi.first.units.Units.Volts.of(1)
+                    .per(edu.wpi.first.units.Units.Second), // 1V/s ramp rate for slow quasistatic
+                edu.wpi.first.units.Units.Volts.of(
+                    7), // 7V step for dynamic to clearly overcome static friction while leaving
+                // headroom
+                edu.wpi.first.units.Units.Seconds.of(
+                    8), // 10s timeout to prevent overspeed/overheating
+                (state) -> SignalLogger.writeString("state", state.toString())),
+            new SysIdRoutine.Mechanism((Voltage volts) -> setVoltage(volts.in(Volts)), null, this));
   }
 
   @Override
@@ -140,5 +160,19 @@ public class Shooter extends SubsystemBase {
           setTargetRpm(rpmSupplier.getAsDouble());
         },
         () -> stop());
+  }
+
+  public Command sysIdQuasistatic(SysIdRoutine.Direction direction) {
+    return sysIdRoutine
+        .quasistatic(direction)
+        .beforeStarting(SignalLogger::start)
+        .withName("Shooter SysId Quasistatic " + direction);
+  }
+
+  public Command sysIdDynamic(SysIdRoutine.Direction direction) {
+    return sysIdRoutine
+        .dynamic(direction)
+        .beforeStarting(SignalLogger::start)
+        .withName("Shooter SysId Dynamic " + direction);
   }
 }
